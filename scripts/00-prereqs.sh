@@ -54,12 +54,16 @@ create_env() {
 }
 
 check_resources() {
-  local mem_gb cpus
+  # Budget from docs/sizing.md: 24GB and 6 vCPU for the platform, plus 4GB and 2 vCPU per concurrent build.
+  local mem_gb cpus agents need_gb need_cpu
+  agents="${JENKINS_MAX_AGENTS:-5}"
+  need_gb=$(( 24 + 4 * agents ))
+  need_cpu=$(( 6 + 2 * agents ))
   mem_gb=$(( $(awk '/MemTotal/ {print $2}' /proc/meminfo) / 1024 / 1024 ))
   cpus=$(nproc)
-  log "host has ${mem_gb}GB RAM and ${cpus} CPUs"
-  [[ $mem_gb -ge 16 ]] || warn "the full stack needs about 20GB RAM. Install a subset with --only, or add memory."
-  [[ $cpus -ge 4 ]] || warn "4 CPUs is the practical minimum for Gitea plus SonarQube plus Jenkins."
+  log "host has ${mem_gb}GB RAM and ${cpus} CPUs; ${agents} parallel builds need about ${need_gb}GB and ${need_cpu} vCPU"
+  [[ $mem_gb -ge $need_gb ]] || warn "RAM below the budget for JENKINS_MAX_AGENTS=${agents}. Lower it in .env, split onto two hosts, or add memory (docs/sizing.md)."
+  [[ $cpus -ge $need_cpu ]] || warn "CPU below the budget for JENKINS_MAX_AGENTS=${agents}. Builds will queue on CPU rather than fail."
 }
 
 install_docker

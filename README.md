@@ -81,11 +81,21 @@ Each component is a Docker Compose project under `stacks/<name>/` with its data 
 
 ## Requirements
 
-- Debian 12/13 or Ubuntu 22.04/24.04 host, root access, outbound internet for image pulls.
-- Full stack: 8 CPUs, 16 GB RAM, 150 GB disk. SonarQube wants 2 GB, Nexus 2 GB,
-  Dependency-Track 4 GB, Gitea under 1 GB. A smaller host can install a subset with `--only`.
+Sized for five builds running at the same time (`JENKINS_MAX_AGENTS=5`). Full detail,
+per-service budgets and the two-host layout are in [docs/sizing.md](docs/sizing.md).
+
+| Profile | vCPU | RAM | Disk |
+|---|---|---|---|
+| Minimum, single host | 16 | 48 GB | 500 GB SSD |
+| Recommended, single host | 24 | 64 GB | 1 TB NVMe |
+| Recommended, two hosts | 8 platform + 12 build | 32 GB + 32 GB | 500 GB + 300 GB |
+
+- Debian 12/13 or Ubuntu 22.04/24.04, root access, outbound internet for image pulls and
+  vulnerability feeds.
 - A wildcard DNS record `*.<domain>` pointing at the host (internal DNS is fine).
 - Ports 80, 443 and the Gitea SSH port free.
+- A smaller host can run a subset with `--only`; the prerequisites script warns when the
+  host is below the budget for the configured agent count.
 
 ## Install
 
@@ -113,8 +123,9 @@ and `ACME_EMAIL` for Let's Encrypt.
 1. Vault: `docker exec -it vault vault operator init`, store the unseal keys offline, unseal.
 2. Nexus: read `${DATA_ROOT}/nexus/data/admin.password`, log in, create `npm-proxy`,
    `composer-proxy`, `docker-hosted` (HTTP connector on port 5000, enable Docker Bearer Token realm).
-3. SonarQube: change the admin password, create a token, add it to Jenkins as `sonarqube-token`,
-   and configure the server under Manage Jenkins, System, SonarQube servers with name `sonarqube`.
+3. SonarQube: change the admin password, add the webhook `https://jenkins.<domain>/sonarqube-webhook/`,
+   create a global analysis token, add it to Jenkins as `sonarqube-token`, and configure the
+   server under Manage Jenkins, System, SonarQube servers with name `sonarqube`.
 4. Dependency-Track: change admin password, create an automation team and API key, Jenkins credential `dtrack-api-key`.
 5. DefectDojo: create an API key for a service user, Jenkins credential `defectdojo-api-key`.
 6. Keycloak: create realm `devsecops`, one OIDC client per tool, then switch each tool to OIDC
@@ -125,6 +136,12 @@ and `ACME_EMAIL` for Let's Encrypt.
    Copy `templates/Jenkinsfile.example` into the repository.
 8. Developers: `cp templates/pre-commit .git/hooks/pre-commit` in every clone.
 9. Backups: snapshot `${DATA_ROOT}` nightly. Gitea also offers `gitea dump` for a consistent archive.
+
+## Documentation
+
+One page per tool under [docs/](docs/README.md): role in the chain, deployment facts,
+first-run steps, integrations, operations and free edition limits. Hardware sizing for
+five parallel builds is in [docs/sizing.md](docs/sizing.md).
 
 ## Security notes
 

@@ -26,6 +26,7 @@ services:
         condition: service_healthy
     environment:
       TZ: ${TZ}
+      EXTRA_JAVA_OPTIONS: -Xms1g -Xmx4g
       ALPINE_DATABASE_MODE: external
       ALPINE_DATABASE_URL: jdbc:postgresql://dtrack-db:5432/dtrack
       ALPINE_DATABASE_DRIVER: org.postgresql.Driver

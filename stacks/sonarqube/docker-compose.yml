@@ -30,6 +30,9 @@ services:
       SONAR_JDBC_USERNAME: sonar
       SONAR_JDBC_PASSWORD: ${SONAR_DB_PASSWORD}
       SONAR_CORE_SERVERBASEURL: https://sonarqube.${DOMAIN}
+      SONAR_WEB_JAVAOPTS: -Xms512m -Xmx1g
+      SONAR_CE_JAVAOPTS: -Xms512m -Xmx2g
+      SONAR_SEARCH_JAVAOPTS: -Xms1g -Xmx1g
     ulimits:
       nofile:
         soft: 131072

@@ -24,14 +24,14 @@ jenkins:
             uri: "tcp://docker-socket-proxy:2375"
           connectTimeout: 60
           readTimeout: 60
-        containerCap: 4
+        containerCap: ${JENKINS_MAX_AGENTS}
         templates:
           - name: "docker-agent"
             labelString: "docker-agent"
             mode: EXCLUSIVE
             pullStrategy: PULL_NEVER
             remoteFs: "/home/jenkins/agent"
-            instanceCapStr: "4"
+            instanceCapStr: "${JENKINS_MAX_AGENTS}"
             removeVolumes: true
             connector:
               attach:
