@@ -1,0 +1,62 @@
+services:
+  docker-socket-proxy:
+    image: ${DOCKER_SOCKET_PROXY_IMAGE}
+    restart: unless-stopped
+    environment:
+      # Only what the Docker plugin needs to start and attach to agent containers.
+      CONTAINERS: 1
+      IMAGES: 1
+      NETWORKS: 1
+      VOLUMES: 1
+      EXEC: 1
+      INFO: 1
+      POST: 1
+      BUILD: 1
+      ALLOW_START: 1
+      ALLOW_STOP: 1
+      ALLOW_RESTARTS: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - jenkins-internal
+
+  jenkins:
+    build:
+      context: ./controller
+      args:
+        JENKINS_IMAGE: ${JENKINS_IMAGE}
+    image: devsecops/jenkins:local
+    container_name: jenkins
+    restart: unless-stopped
+    user: "1000:1000"
+    depends_on:
+      - docker-socket-proxy
+    environment:
+      TZ: ${TZ}
+      DOCKER_HOST: tcp://docker-socket-proxy:2375
+      CASC_JENKINS_CONFIG: /usr/share/jenkins/casc/jenkins.yaml
+      JAVA_OPTS: -Djenkins.install.runSetupWizard=false -Duser.timezone=${TZ}
+      JENKINS_URL: https://jenkins.${DOMAIN}/
+      JENKINS_ADMIN_USER: ${JENKINS_ADMIN_USER}
+      JENKINS_ADMIN_PASSWORD: ${JENKINS_ADMIN_PASSWORD}
+      DOCKER_NETWORK: ${DOCKER_NETWORK}
+    volumes:
+      - ${DATA_ROOT}/jenkins/home:/var/jenkins_home
+      - ./controller/casc:/usr/share/jenkins/casc:ro
+    networks:
+      - jenkins-internal
+      - devsecops
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.jenkins.rule=Host(`jenkins.${DOMAIN}`)
+      - traefik.http.routers.jenkins.entrypoints=websecure
+      - traefik.http.routers.jenkins.tls=true
+      - traefik.http.routers.jenkins.tls.certresolver=${CERT_RESOLVER}
+      - traefik.http.services.jenkins.loadbalancer.server.port=8080
+
+networks:
+  jenkins-internal:
+    name: jenkins-internal
+  devsecops:
+    external: true
+    name: ${DOCKER_NETWORK}

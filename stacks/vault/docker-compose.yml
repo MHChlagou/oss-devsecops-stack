@@ -1,0 +1,29 @@
+services:
+  vault:
+    image: ${VAULT_IMAGE}
+    container_name: vault
+    restart: unless-stopped
+    command: server
+    cap_add:
+      - IPC_LOCK
+    environment:
+      TZ: ${TZ}
+      VAULT_ADDR: http://127.0.0.1:8200
+    volumes:
+      - ${DATA_ROOT}/vault/config:/vault/config:ro
+      - ${DATA_ROOT}/vault/file:/vault/file
+      - ${DATA_ROOT}/vault/logs:/vault/logs
+    networks:
+      - devsecops
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.vault.rule=Host(`vault.${DOMAIN}`)
+      - traefik.http.routers.vault.entrypoints=websecure
+      - traefik.http.routers.vault.tls=true
+      - traefik.http.routers.vault.tls.certresolver=${CERT_RESOLVER}
+      - traefik.http.services.vault.loadbalancer.server.port=8200
+
+networks:
+  devsecops:
+    external: true
+    name: ${DOCKER_NETWORK}

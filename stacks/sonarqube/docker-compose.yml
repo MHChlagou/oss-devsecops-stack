@@ -1,0 +1,57 @@
+services:
+  sonarqube-db:
+    image: ${POSTGRES_IMAGE}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sonar
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: ${SONAR_DB_PASSWORD}
+      TZ: ${TZ}
+    volumes:
+      - ${DATA_ROOT}/sonarqube/db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sonar -d sonar"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+
+  sonarqube:
+    image: ${SONARQUBE_IMAGE}
+    container_name: sonarqube
+    restart: unless-stopped
+    depends_on:
+      sonarqube-db:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ}
+      SONAR_JDBC_URL: jdbc:postgresql://sonarqube-db:5432/sonar
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: ${SONAR_DB_PASSWORD}
+      SONAR_CORE_SERVERBASEURL: https://sonarqube.${DOMAIN}
+    ulimits:
+      nofile:
+        soft: 131072
+        hard: 131072
+      nproc: 8192
+    volumes:
+      - ${DATA_ROOT}/sonarqube/data:/opt/sonarqube/data
+      - ${DATA_ROOT}/sonarqube/extensions:/opt/sonarqube/extensions
+      - ${DATA_ROOT}/sonarqube/logs:/opt/sonarqube/logs
+    networks:
+      - internal
+      - devsecops
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.sonarqube.rule=Host(`sonarqube.${DOMAIN}`)
+      - traefik.http.routers.sonarqube.entrypoints=websecure
+      - traefik.http.routers.sonarqube.tls=true
+      - traefik.http.routers.sonarqube.tls.certresolver=${CERT_RESOLVER}
+      - traefik.http.services.sonarqube.loadbalancer.server.port=9000
+
+networks:
+  internal:
+  devsecops:
+    external: true
+    name: ${DOCKER_NETWORK}

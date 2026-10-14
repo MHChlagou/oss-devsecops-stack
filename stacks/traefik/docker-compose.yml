@@ -1,0 +1,31 @@
+services:
+  traefik:
+    image: ${TRAEFIK_IMAGE}
+    container_name: traefik
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${DATA_ROOT}/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ${DATA_ROOT}/traefik/usersfile:/etc/traefik/usersfile:ro
+      - ${DATA_ROOT}/traefik/letsencrypt:/letsencrypt
+    networks:
+      - devsecops
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN}`)
+      - traefik.http.routers.traefik.entrypoints=websecure
+      - traefik.http.routers.traefik.tls=true
+      - traefik.http.routers.traefik.tls.certresolver=${CERT_RESOLVER}
+      - traefik.http.routers.traefik.service=api@internal
+      - traefik.http.routers.traefik.middlewares=traefik-auth
+      - traefik.http.middlewares.traefik-auth.basicauth.usersfile=/etc/traefik/usersfile
+
+networks:
+  devsecops:
+    external: true
+    name: ${DOCKER_NETWORK}

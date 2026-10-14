@@ -1,0 +1,70 @@
+services:
+  gitea-db:
+    image: ${POSTGRES_IMAGE}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gitea
+      POSTGRES_USER: gitea
+      POSTGRES_PASSWORD: ${GITEA_DB_PASSWORD}
+      TZ: ${TZ}
+    volumes:
+      - ${DATA_ROOT}/gitea/db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gitea -d gitea"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+
+  gitea:
+    image: ${GITEA_IMAGE}
+    container_name: gitea
+    restart: unless-stopped
+    depends_on:
+      gitea-db:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ}
+      USER_UID: "1000"
+      USER_GID: "1000"
+      GITEA__database__DB_TYPE: postgres
+      GITEA__database__HOST: gitea-db:5432
+      GITEA__database__NAME: gitea
+      GITEA__database__USER: gitea
+      GITEA__database__PASSWD: ${GITEA_DB_PASSWORD}
+      GITEA__server__DOMAIN: gitea.${DOMAIN}
+      GITEA__server__ROOT_URL: https://gitea.${DOMAIN}/
+      GITEA__server__HTTP_PORT: "3000"
+      GITEA__server__SSH_DOMAIN: gitea.${DOMAIN}
+      GITEA__server__SSH_PORT: ${GITEA_SSH_PORT}
+      GITEA__server__SSH_LISTEN_PORT: "22"
+      GITEA__server__LFS_START_SERVER: "true"
+      GITEA__security__INSTALL_LOCK: "true"
+      GITEA__service__DISABLE_REGISTRATION: "true"
+      GITEA__service__REQUIRE_SIGNIN_VIEW: "true"
+      GITEA__actions__ENABLED: "false"
+      # Jenkins sits on a private address, which Gitea refuses for webhooks by default.
+      GITEA__webhook__ALLOWED_HOST_LIST: private,loopback,*.${DOMAIN}
+      GITEA__log__LEVEL: Info
+    ports:
+      - "${GITEA_SSH_PORT}:22"
+    volumes:
+      - ${DATA_ROOT}/gitea/data:/data
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - internal
+      - devsecops
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.gitea.rule=Host(`gitea.${DOMAIN}`)
+      - traefik.http.routers.gitea.entrypoints=websecure
+      - traefik.http.routers.gitea.tls=true
+      - traefik.http.routers.gitea.tls.certresolver=${CERT_RESOLVER}
+      - traefik.http.services.gitea.loadbalancer.server.port=3000
+
+networks:
+  internal:
+  devsecops:
+    external: true
+    name: ${DOCKER_NETWORK}

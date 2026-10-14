@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Git pre-commit hook: block commits that contain secrets. Install with
+#   cp templates/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# Requires the gitleaks wrapper from scripts/80-scanners.sh or a native gitleaks binary.
+set -euo pipefail
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks not installed, skipping secret scan" >&2
+  exit 0
+fi
+gitleaks protect --staged --redact --verbose

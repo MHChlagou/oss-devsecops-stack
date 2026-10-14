@@ -1,0 +1,132 @@
+x-django-env: &django-env
+  TZ: ${TZ}
+  DD_DEBUG: "False"
+  DD_ALLOWED_HOSTS: defectdojo.${DOMAIN}
+  DD_SITE_URL: https://defectdojo.${DOMAIN}
+  DD_CSRF_TRUSTED_ORIGINS: https://defectdojo.${DOMAIN}
+  DD_SESSION_COOKIE_SECURE: "True"
+  DD_CSRF_COOKIE_SECURE: "True"
+  DD_SECURE_SSL_REDIRECT: "False"
+  DD_DATABASE_ENGINE: django.db.backends.postgresql
+  DD_DATABASE_HOST: defectdojo-db
+  DD_DATABASE_PORT: "5432"
+  DD_DATABASE_NAME: defectdojo
+  DD_DATABASE_USER: defectdojo
+  DD_DATABASE_PASSWORD: ${DEFECTDOJO_DB_PASSWORD}
+  DD_CELERY_BROKER_URL: redis://defectdojo-redis:6379/0
+  DD_SECRET_KEY: ${DEFECTDOJO_SECRET_KEY}
+  DD_CREDENTIAL_AES_256_KEY: ${DEFECTDOJO_CREDENTIAL_AES_KEY}
+
+services:
+  defectdojo-db:
+    image: ${POSTGRES_IMAGE}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: defectdojo
+      POSTGRES_USER: defectdojo
+      POSTGRES_PASSWORD: ${DEFECTDOJO_DB_PASSWORD}
+      TZ: ${TZ}
+    volumes:
+      - ${DATA_ROOT}/defectdojo/db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U defectdojo -d defectdojo"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+
+  defectdojo-redis:
+    image: ${REDIS_IMAGE}
+    restart: unless-stopped
+    networks:
+      - internal
+
+  initializer:
+    image: ${DEFECTDOJO_DJANGO_IMAGE}
+    entrypoint: ["/entrypoint-initializer.sh"]
+    restart: on-failure
+    depends_on:
+      defectdojo-db:
+        condition: service_healthy
+    environment:
+      <<: *django-env
+      DD_INITIALIZE: "true"
+      DD_ADMIN_USER: admin
+      DD_ADMIN_MAIL: devsecops@${DOMAIN}
+      DD_ADMIN_FIRST_NAME: Admin
+      DD_ADMIN_LAST_NAME: User
+      DD_ADMIN_PASSWORD: ${DEFECTDOJO_ADMIN_PASSWORD}
+    volumes:
+      - ${DATA_ROOT}/defectdojo/media:/app/media
+    networks:
+      - internal
+
+  uwsgi:
+    image: ${DEFECTDOJO_DJANGO_IMAGE}
+    entrypoint: ["/entrypoint-uwsgi.sh"]
+    restart: unless-stopped
+    depends_on:
+      defectdojo-db:
+        condition: service_healthy
+      initializer:
+        condition: service_completed_successfully
+    environment:
+      <<: *django-env
+    volumes:
+      - ${DATA_ROOT}/defectdojo/media:/app/media
+    networks:
+      - internal
+
+  celerybeat:
+    image: ${DEFECTDOJO_DJANGO_IMAGE}
+    entrypoint: ["/entrypoint-celery-beat.sh"]
+    restart: unless-stopped
+    depends_on:
+      - uwsgi
+    environment:
+      <<: *django-env
+    networks:
+      - internal
+
+  celeryworker:
+    image: ${DEFECTDOJO_DJANGO_IMAGE}
+    entrypoint: ["/entrypoint-celery-worker.sh"]
+    restart: unless-stopped
+    depends_on:
+      - uwsgi
+    environment:
+      <<: *django-env
+    volumes:
+      - ${DATA_ROOT}/defectdojo/media:/app/media
+    networks:
+      - internal
+
+  nginx:
+    image: ${DEFECTDOJO_NGINX_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      - uwsgi
+    environment:
+      TZ: ${TZ}
+      DD_UWSGI_HOST: uwsgi
+      DD_UWSGI_PORT: "3031"
+      NGINX_METRICS_ENABLED: "false"
+    volumes:
+      - ${DATA_ROOT}/defectdojo/media:/usr/share/nginx/html/media:ro
+    networks:
+      - internal
+      - devsecops
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.defectdojo.rule=Host(`defectdojo.${DOMAIN}`)
+      - traefik.http.routers.defectdojo.entrypoints=websecure
+      - traefik.http.routers.defectdojo.tls=true
+      - traefik.http.routers.defectdojo.tls.certresolver=${CERT_RESOLVER}
+      - traefik.http.services.defectdojo.loadbalancer.server.port=8080
+
+networks:
+  internal:
+  devsecops:
+    external: true
+    name: ${DOCKER_NETWORK}

@@ -1,0 +1,75 @@
+services:
+  dtrack-db:
+    image: ${POSTGRES_IMAGE}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: dtrack
+      POSTGRES_USER: dtrack
+      POSTGRES_PASSWORD: ${DTRACK_DB_PASSWORD}
+      TZ: ${TZ}
+    volumes:
+      - ${DATA_ROOT}/dtrack/db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dtrack -d dtrack"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+
+  dtrack-api:
+    image: ${DTRACK_API_IMAGE}
+    container_name: dtrack-api
+    restart: unless-stopped
+    depends_on:
+      dtrack-db:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ}
+      ALPINE_DATABASE_MODE: external
+      ALPINE_DATABASE_URL: jdbc:postgresql://dtrack-db:5432/dtrack
+      ALPINE_DATABASE_DRIVER: org.postgresql.Driver
+      ALPINE_DATABASE_USERNAME: dtrack
+      ALPINE_DATABASE_PASSWORD: ${DTRACK_DB_PASSWORD}
+      ALPINE_CORS_ENABLED: "true"
+      ALPINE_CORS_ALLOW_ORIGIN: https://dtrack.${DOMAIN}
+      ALPINE_CORS_ALLOW_METHODS: GET, POST, PUT, DELETE, OPTIONS
+      ALPINE_CORS_ALLOW_HEADERS: Origin, Content-Type, Authorization, X-Requested-With, Content-Length, Accept, Origin, X-Api-Key, X-Total-Count, *
+      ALPINE_CORS_EXPOSE_HEADERS: Origin, Content-Type, Authorization, X-Requested-With, Content-Length, Accept, Origin, X-Api-Key, X-Total-Count
+      ALPINE_CORS_ALLOW_CREDENTIALS: "true"
+    volumes:
+      - ${DATA_ROOT}/dtrack/data:/data
+    networks:
+      - internal
+      - devsecops
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dtrack-api.rule=Host(`dtrack-api.${DOMAIN}`)
+      - traefik.http.routers.dtrack-api.entrypoints=websecure
+      - traefik.http.routers.dtrack-api.tls=true
+      - traefik.http.routers.dtrack-api.tls.certresolver=${CERT_RESOLVER}
+      - traefik.http.services.dtrack-api.loadbalancer.server.port=8080
+
+  dtrack-frontend:
+    image: ${DTRACK_FRONTEND_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      - dtrack-api
+    environment:
+      TZ: ${TZ}
+      API_BASE_URL: https://dtrack-api.${DOMAIN}
+    networks:
+      - devsecops
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dtrack.rule=Host(`dtrack.${DOMAIN}`)
+      - traefik.http.routers.dtrack.entrypoints=websecure
+      - traefik.http.routers.dtrack.tls=true
+      - traefik.http.routers.dtrack.tls.certresolver=${CERT_RESOLVER}
+      - traefik.http.services.dtrack.loadbalancer.server.port=8080
+
+networks:
+  internal:
+  devsecops:
+    external: true
+    name: ${DOCKER_NETWORK}

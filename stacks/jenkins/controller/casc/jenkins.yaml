@@ -1,0 +1,51 @@
+jenkins:
+  systemMessage: "DevSecOps Jenkins. Configuration is managed by JCasC: edit stacks/jenkins/controller/casc/jenkins.yaml, not this UI."
+  numExecutors: 0
+  mode: EXCLUSIVE
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: ${JENKINS_ADMIN_USER}
+          password: ${JENKINS_ADMIN_PASSWORD}
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+  remotingSecurity:
+    enabled: true
+  crumbIssuer:
+    standard:
+      excludeClientIPFromCrumb: true
+  clouds:
+    - docker:
+        name: "local-docker"
+        dockerApi:
+          dockerHost:
+            uri: "tcp://docker-socket-proxy:2375"
+          connectTimeout: 60
+          readTimeout: 60
+        containerCap: 4
+        templates:
+          - name: "docker-agent"
+            labelString: "docker-agent"
+            mode: EXCLUSIVE
+            pullStrategy: PULL_NEVER
+            remoteFs: "/home/jenkins/agent"
+            instanceCapStr: "4"
+            removeVolumes: true
+            connector:
+              attach:
+                user: "jenkins"
+            dockerTemplateBase:
+              image: "devsecops/jenkins-agent:local"
+              network: "jenkins-internal"
+              environmentsString: "DOCKER_HOST=tcp://docker-socket-proxy:2375"
+
+security:
+  gitHostKeyVerificationConfiguration:
+    sshHostKeyVerificationStrategy: "acceptFirstConnectionStrategy"
+
+unclassified:
+  location:
+    url: ${JENKINS_URL}
+    adminAddress: "devsecops@${DOMAIN}"

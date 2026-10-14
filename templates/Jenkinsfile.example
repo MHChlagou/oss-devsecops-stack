@@ -1,0 +1,144 @@
+// Reference pipeline for a PHP + TypeScript application on the DevSecOps platform.
+// Copy to the repository root as Jenkinsfile and adapt the build stage.
+// Gitea webhook target: https://jenkins.<domain>/gitea-webhook/post (Gitea plugin).
+// Credentials expected in Jenkins: sonarqube-token, dtrack-api-key, defectdojo-api-key, nexus-registry.
+
+pipeline {
+  agent { label 'docker-agent' }
+
+  environment {
+    DOMAIN       = 'devsecops.example.internal'
+    IMAGE        = "registry.${DOMAIN}/${env.JOB_BASE_NAME}:${env.BUILD_NUMBER}"
+    REPORT_DIR   = 'security-reports'
+    STAGING_URL  = 'https://staging.example.internal'
+  }
+
+  options {
+    timestamps()
+    timeout(time: 45, unit: 'MINUTES')
+    buildDiscarder(logRotator(numToKeepStr: '30'))
+  }
+
+  stages {
+    stage('Prepare') {
+      steps { sh 'mkdir -p $REPORT_DIR' }
+    }
+
+    stage('Secrets scan') {
+      steps {
+        sh 'gitleaks detect --source . --redact --report-format json --report-path $REPORT_DIR/gitleaks.json'
+      }
+    }
+
+    stage('Build') {
+      steps {
+        // Build tools run in their own images so the agent stays generic.
+        script {
+          docker.image('composer:2').inside { sh 'composer install --no-interaction --prefer-dist' }
+          docker.image('node:22').inside    { sh 'npm ci && npm run build && npm test' }
+        }
+      }
+    }
+
+    stage('SAST') {
+      parallel {
+        stage('Semgrep') {
+          steps {
+            sh 'semgrep scan --config p/default --config p/php --config p/typescript --sarif --output $REPORT_DIR/semgrep.sarif || true'
+          }
+        }
+        stage('SonarQube') {
+          steps {
+            withSonarQubeEnv('sonarqube') {
+              script {
+                docker.image('sonarsource/sonar-scanner-cli:11').inside {
+                  sh 'sonar-scanner -Dsonar.projectKey=$JOB_BASE_NAME -Dsonar.sources=.'
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    stage('Quality gate') {
+      steps {
+        timeout(time: 10, unit: 'MINUTES') { waitForQualityGate abortPipeline: true }
+      }
+    }
+
+    stage('Dependencies and SBOM') {
+      steps {
+        sh '''
+          trivy fs --scanners vuln,secret --severity HIGH,CRITICAL --exit-code 1 --format json --output $REPORT_DIR/trivy-fs.json .
+          syft dir:. -o cyclonedx-json > $REPORT_DIR/sbom.cdx.json
+        '''
+        dependencyTrackPublisher artifact: "${REPORT_DIR}/sbom.cdx.json",
+                                 projectName: env.JOB_BASE_NAME,
+                                 projectVersion: env.BRANCH_NAME ?: 'main',
+                                 autoCreateProjects: true,
+                                 synchronous: true
+      }
+    }
+
+    stage('Container image') {
+      steps {
+        sh '''
+          hadolint Dockerfile
+          docker build -t $IMAGE .
+          trivy image --severity HIGH,CRITICAL --exit-code 1 --format json --output $REPORT_DIR/trivy-image.json $IMAGE
+        '''
+        withCredentials([usernamePassword(credentialsId: 'nexus-registry', usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {
+          sh 'echo "$REG_PASS" | docker login registry.$DOMAIN -u "$REG_USER" --password-stdin && docker push $IMAGE'
+        }
+      }
+    }
+
+    stage('IaC scan') {
+      when { anyOf { changeset 'deploy/**'; changeset '**/*.tf'; changeset '**/docker-compose*.yml' } }
+      steps {
+        sh 'checkov -d deploy --output json --output-file-path $REPORT_DIR || true'
+      }
+    }
+
+    stage('Deploy staging') {
+      when { branch 'main' }
+      steps {
+        // Replace with the client's deployment mechanism (docker compose over SSH, Ansible, Helm).
+        sh 'echo "deploy $IMAGE to $STAGING_URL"'
+      }
+    }
+
+    stage('DAST') {
+      when { branch 'main' }
+      steps {
+        sh 'zap-baseline.py -t $STAGING_URL -J $REPORT_DIR/zap.json -r $REPORT_DIR/zap.html || true'
+      }
+    }
+  }
+
+  post {
+    always {
+      archiveArtifacts artifacts: "${REPORT_DIR}/**", allowEmptyArchive: true
+      // Push every report to DefectDojo. One call per scan type, see /api/v2/doc for scan_type names.
+      withCredentials([string(credentialsId: 'defectdojo-api-key', variable: 'DD_KEY')]) {
+        sh '''
+          import_scan() {
+            [ -f "$2" ] || return 0
+            curl -fsS -X POST "https://defectdojo.$DOMAIN/api/v2/import-scan/" \
+              -H "Authorization: Token $DD_KEY" \
+              -F "scan_type=$1" -F "file=@$2" \
+              -F "product_name=$JOB_BASE_NAME" -F "engagement_name=ci" \
+              -F "auto_create_context=true" -F "close_old_findings=true" >/dev/null
+          }
+          import_scan "Gitleaks Scan"   $REPORT_DIR/gitleaks.json
+          import_scan "SARIF"           $REPORT_DIR/semgrep.sarif
+          import_scan "Trivy Scan"      $REPORT_DIR/trivy-fs.json
+          import_scan "Trivy Scan"      $REPORT_DIR/trivy-image.json
+          import_scan "Checkov Scan"    $REPORT_DIR/results_json.json
+          import_scan "ZAP Scan"        $REPORT_DIR/zap.json
+        '''
+      }
+    }
+  }
+}
