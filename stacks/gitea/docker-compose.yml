@@ -44,8 +44,10 @@ services:
       GITEA__service__DISABLE_REGISTRATION: "true"
       GITEA__service__REQUIRE_SIGNIN_VIEW: "true"
       GITEA__actions__ENABLED: "false"
-      # Jenkins sits on a private address, which Gitea refuses for webhooks by default.
-      GITEA__webhook__ALLOWED_HOST_LIST: private,loopback,*.${DOMAIN}
+      # Gitea refuses webhooks to private addresses by default. Allow only platform hostnames
+      # (Jenkins is reached as jenkins.${DOMAIN} through Traefik), not whole private ranges,
+      # so a repository admin cannot aim webhooks at arbitrary internal services.
+      GITEA__webhook__ALLOWED_HOST_LIST: "*.${DOMAIN}"
       GITEA__log__LEVEL: Info
     ports:
       - "${GITEA_SSH_PORT}:22"
