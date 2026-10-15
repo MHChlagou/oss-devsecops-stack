@@ -87,8 +87,12 @@ webhooks and clone URLs are right, and let the proxy forward to the ports above.
   pulls, including the build host, needs `"insecure-registries": ["HOST:5000"]` in
   `/etc/docker/daemon.json`, and the `IMAGE` variable in the Jenkinsfile becomes
   `HOST:5000/<app>:<tag>`.
-- Gitea's webhook allow-list is reduced to `HOST_ADDRESS`, which is enough for Jenkins and
-  still blocks other internal targets.
+- Gitea's webhook allow-list is reduced to `HOST_ADDRESS`. Gitea matches hosts, not ports, so a
+  repository admin can aim a webhook at any port of the platform host, all of which developers
+  reach anyway in this profile, and at nothing else on the network. If even that is too wide,
+  set `GITEA_WEBHOOK_ALLOWED_HOSTS=jenkins` in `.env` and create webhooks by hand with the
+  internal URL `http://jenkins:8080/gitea-webhook/post`; Jenkins-managed hooks then stop working
+  because the plugin registers the public URL.
 - Firewall: open 2222, 3000, 8080, 8081, 9000 and 5000 to developers, nothing to the internet.
 - Scanner wrappers on the host (`scripts/80-scanners.sh`) are not installed by the command
   above; add `scanners` to `--only` if operators want to run the tools by hand.
