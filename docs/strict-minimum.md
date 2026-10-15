@@ -150,8 +150,18 @@ Full tables, backups and the regional note are in [minimal-setup.md](minimal-set
 
 ## Growing from here
 
-Add Traefik first (`sudo ./install.sh --only traefik` after switching `INGRESS=traefik` and
-rerunning the four components so their URLs change), then the other components one at a time
-as described in the minimal setup page. The ports stay the same, but every URL switches from
-`http` to `https`: tool settings, webhooks and developer remotes need updating, so decide the
-ingress mode before the first repository is created.
+Add Traefik first. The four containers hold the host ports that Traefik needs, so stop them
+before switching the mode; the data is kept:
+
+```bash
+sudo ./install.sh --uninstall all
+sed -i 's/^INGRESS=.*/INGRESS=traefik/' .env
+sudo ./install.sh --only traefik,gitea,jenkins,sonarqube,nexus
+```
+
+Traefik then serves the same ports over HTTPS with a certificate generated for `HOST_ADDRESS`
+(see [traefik.md](tools/traefik.md)), and the rerun rewrites each tool's public URL. After
+that, add the other components one at a time as described in the minimal setup page. The
+ports stay the same, but every URL switches from `http` to `https`: webhooks and developer
+remotes created before the switch need updating, so decide the ingress mode before the first
+repository is created.
