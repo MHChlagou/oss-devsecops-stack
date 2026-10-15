@@ -214,7 +214,9 @@ client's CA in that directory as `server.crt` and `server.key` and rerun the Tra
    In Jenkins add the Gitea server under Manage Jenkins, System, Gitea Servers, then create a
    Gitea Organization folder job. Webhooks go to `https://<host>/jenkins/gitea-webhook/post`.
    Copy `templates/Jenkinsfile.example` into the repository.
-8. Developers: `cp templates/pre-commit .git/hooks/pre-commit` in every clone.
+8. Developers: trust the platform certificate once, or skip verification for this host only
+   with `git config --global http.https://<host>/.sslVerify false` ([docs/tls.md](docs/tls.md)),
+   then `cp templates/pre-commit .git/hooks/pre-commit` in every clone.
 9. Backups: snapshot `${DATA_ROOT}` nightly. Gitea also offers `gitea dump` for a consistent archive.
 
 ## Documentation

@@ -81,11 +81,28 @@ as a trusted certificate:
 ### Git command line
 
 Git verifies HTTPS remotes with its own CA bundle or the system store depending on the
-platform. Either import system-wide as above, or point Git at the file:
+platform, so a clone fails with "SSL certificate problem: self-signed certificate" until one
+of the following is done. Pick one per developer machine.
+
+Quickest, to be able to clone right away: skip verification for the platform host only.
+Git applies the setting to that URL prefix and keeps verifying every other remote:
+
+```bash
+git config --global http.https://<host>/.sslVerify false
+```
+
+The plain `git config --global http.sslVerify false` also works, but it disables certificate
+checks for every HTTPS remote on that machine, GitHub and package mirrors included, so prefer
+the scoped form above.
+
+Better, once the certificate has been fetched: tell Git to trust it, so verification stays on:
 
 ```bash
 git config --global http.https://<host>/.sslCAInfo /path/to/server.crt
 ```
+
+Importing the certificate system-wide, as in the browser section, also covers Git on Linux
+and macOS.
 
 Clones over SSH (`ssh://git@<host>:2222/...`) do not involve the certificate at all.
 
