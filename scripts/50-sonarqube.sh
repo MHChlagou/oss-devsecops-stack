@@ -12,6 +12,7 @@ ensure_dir "$DATA_ROOT/sonarqube/data" 1000:1000
 ensure_dir "$DATA_ROOT/sonarqube/extensions" 1000:1000
 ensure_dir "$DATA_ROOT/sonarqube/logs" 1000:1000
 compose_up sonarqube
+sync_db_password sonarqube sonarqube-db sonar "$SONAR_DB_PASSWORD"
 wait_for_service sonarqube "$SONARQUBE_HTTP_PORT" /api/system/status 600
 log "SonarQube: ${SONARQUBE_URL} (admin / admin, forced change at first login)"
 log "next: generate a token for Jenkins and add it as credential 'sonarqube-token'"

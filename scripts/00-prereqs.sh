@@ -56,8 +56,20 @@ seed_env_from_environment() {
   done
 }
 
+# A new .env next to data from an earlier install means new secrets for existing services.
+# Database passwords are re-aligned by each component script; the admin accounts created at
+# first start (Gitea, Keycloak, DefectDojo) keep their old passwords, which this .env will not hold.
+warn_if_data_exists() {
+  local data_root="${DATA_ROOT:-$(sed -n 's/^DATA_ROOT=//p' "$ROOT_DIR/.env.example")}"
+  [[ -d "$data_root" ]] || return 0
+  [[ -n "$(find "$data_root" -mindepth 1 -maxdepth 1 -type d 2>/dev/null)" ]] || return 0
+  warn "creating a new .env while $data_root already holds data from a previous install"
+  warn "restore the previous .env instead if you still have it; otherwise admin passwords created at first start are the old ones"
+}
+
 create_env() {
   if [[ ! -f "$ENV_FILE" ]]; then
+    warn_if_data_exists
     cp "$ROOT_DIR/.env.example" "$ENV_FILE"
     chmod 600 "$ENV_FILE"
     seed_env_from_environment

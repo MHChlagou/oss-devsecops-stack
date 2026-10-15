@@ -10,6 +10,7 @@ ensure_network
 ensure_dir "$DATA_ROOT/dtrack/db"
 ensure_dir "$DATA_ROOT/dtrack/data" 1000:1000
 compose_up dependency-track
+sync_db_password dependency-track dtrack-db dtrack "$DTRACK_DB_PASSWORD"
 wait_for_service dtrack-api "$DTRACK_API_PORT" /api/version 600
 log "Dependency-Track: ${DTRACK_URL} (admin / admin, forced change at first login)"
 log "next: create an automation team with BOM_UPLOAD + PROJECT_CREATION_UPLOAD, store its API key in Jenkins as 'dtrack-api-key'"

@@ -10,6 +10,7 @@ ensure_network
 ensure_dir "$DATA_ROOT/gitea/db"
 ensure_dir "$DATA_ROOT/gitea/data" 1000:1000
 compose_up gitea
+sync_db_password gitea gitea-db gitea "$GITEA_DB_PASSWORD"
 wait_for_service gitea "$GITEA_HTTP_PORT" /api/healthz 300
 
 # First admin account. INSTALL_LOCK=true skips the web installer, so the account is created here.

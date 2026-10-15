@@ -126,6 +126,20 @@ compose_up() {
     "${files[@]}" up -d --remove-orphans "$@"
 }
 
+# sync_db_password <project> <db-service> <role> <password>. Postgres reads POSTGRES_PASSWORD
+# only when it initialises an empty data directory, so a .env regenerated after the first
+# start leaves the role with the old password and the application locked out. Re-align the
+# role on every run: .env is the source of truth. The SQL goes through stdin, never argv.
+sync_db_password() {
+  local project="$1" service="$2" role="$3" password="$4" container
+  container="$(docker ps -q --filter "label=com.docker.compose.project=$project" \
+                                 --filter "label=com.docker.compose.service=$service")"
+  [[ -n "$container" ]] || die "sync_db_password: no running container for $project/$service"
+  password="${password//\'/\'\'}"
+  printf 'ALTER ROLE "%s" PASSWORD '"'"'%s'"'"';\n' "$role" "$password" \
+    | docker exec -i "$container" psql -q -v ON_ERROR_STOP=1 -U "$role" -d "$role" >/dev/null
+}
+
 compose_down() {
   local stack="$1"
   docker compose --project-name "$stack" --env-file "$ENV_FILE" --env-file "$VERSIONS_FILE" \
