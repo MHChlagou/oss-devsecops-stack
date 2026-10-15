@@ -5,6 +5,60 @@ quality gate, an artifact store, and the scanners baked into the Jenkins agent i
 Traefik stays because something has to terminate TLS and route hostnames. Everything else
 in the full stack can be added later with `--only`, one component at a time.
 
+## The chain
+
+```mermaid
+flowchart LR
+    subgraph DEV["Developer workstation"]
+        D[Developer] -->|git commit| PC["pre-commit hook<br/>Gitleaks"]
+    end
+
+    PC -->|git push| GT
+
+    subgraph SCM["Source control"]
+        GT["Gitea<br/>repos, pull requests, webhooks"]
+    end
+
+    GT -->|webhook| J
+    J -->|commit status| GT
+
+    subgraph CI["Jenkins pipeline (ephemeral Docker agents)"]
+        direction TB
+        J["Jenkins controller<br/>JCasC, 0 executors"] --> S1["1. Secrets scan<br/>Gitleaks"]
+        S1 --> S2["2. Build and unit tests<br/>composer, npm"]
+        S2 --> S3["3. SAST<br/>SonarQube + Semgrep"]
+        S3 --> QG{"Quality gate"}
+        QG -->|pass| S4["4. Dependencies<br/>Trivy fs"]
+        QG -->|fail| STOP["Build fails"]
+        S4 --> S5["5. SBOM<br/>Syft, archived"]
+        S5 --> S6["6. Image build<br/>hadolint + Trivy image"]
+        S6 --> S7["7. IaC scan<br/>Checkov"]
+        S7 --> S8["8. Deploy staging"]
+        S8 --> S9["9. DAST<br/>OWASP ZAP"]
+        S1 & S3 & S4 & S6 & S7 & S9 -.reports.-> REP["Build page<br/>Warnings plugin + archived artifacts"]
+    end
+
+    S3 --> SQ[("SonarQube<br/>Community Build")]
+    SQ -->|quality gate webhook| J
+    S6 -->|push image| NX[("Nexus Repository CE<br/>docker, npm, composer")]
+    S2 -.pull packages.-> NX
+    S8 --> ST["Staging environment"]
+    S9 --> ST
+
+    subgraph PLATFORM["Platform"]
+        TR["Traefik<br/>TLS entry point"]
+        CR["Jenkins credentials store<br/>tokens for SonarQube and Nexus"]
+    end
+
+    TR -. https routes .-> GT & J & SQ & NX
+    CR -. credentials .-> J
+```
+
+Compared with the full chain, the report arrows end on the Jenkins build page instead of
+DefectDojo, the SBOM is archived instead of uploaded to Dependency-Track, credentials come
+from the Jenkins store instead of Vault, each tool keeps its own login instead of Keycloak,
+and nothing watches the platform itself.
+
 ## Install
 
 ```bash
