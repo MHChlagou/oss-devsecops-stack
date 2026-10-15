@@ -7,7 +7,10 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=30d
+      # External URL carries the sub-path; Traefik strips it so Prometheus serves at its root
+      # and the in-cluster scrapes (Grafana, itself) keep plain paths.
       - --web.external-url=${PROMETHEUS_URL}
+      - --web.route-prefix=/
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ${DATA_ROOT}/observability/prometheus:/prometheus
@@ -15,10 +18,11 @@ services:
       - devsecops
     labels:
       - traefik.enable=true
-      - traefik.http.routers.prometheus.rule=PathPrefix(`/`)
-      - traefik.http.routers.prometheus.entrypoints=prometheus
+      - traefik.http.routers.prometheus.rule=PathPrefix(`${PROMETHEUS_URL_PATH}`)
+      - traefik.http.routers.prometheus.entrypoints=websecure
       - traefik.http.routers.prometheus.tls=true
-      - traefik.http.routers.prometheus.middlewares=traefik-auth@docker
+      - traefik.http.routers.prometheus.middlewares=traefik-auth@docker,prometheus-strip
+      - traefik.http.middlewares.prometheus-strip.stripprefix.prefixes=${PROMETHEUS_URL_PATH}
       - traefik.http.services.prometheus.loadbalancer.server.port=9090
 
   node-exporter:
@@ -77,6 +81,7 @@ services:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
       GF_SERVER_ROOT_URL: ${GRAFANA_URL}
+      GF_SERVER_SERVE_FROM_SUB_PATH: "${GRAFANA_SERVE_FROM_SUB_PATH}"
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
@@ -85,8 +90,8 @@ services:
       - devsecops
     labels:
       - traefik.enable=true
-      - traefik.http.routers.grafana.rule=PathPrefix(`/`)
-      - traefik.http.routers.grafana.entrypoints=grafana
+      - traefik.http.routers.grafana.rule=PathPrefix(`${GRAFANA_URL_PATH}`)
+      - traefik.http.routers.grafana.entrypoints=websecure
       - traefik.http.routers.grafana.tls=true
       - traefik.http.services.grafana.loadbalancer.server.port=3000
 

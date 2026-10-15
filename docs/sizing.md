@@ -94,8 +94,8 @@ Nothing else changes.
   on GitHub, the NVD and OSV feeds for Dependency-Track, and Semgrep's rule registry. If the
   client's network blocks this, Nexus proxies cover packages and images, and Trivy and
   Dependency-Track need a scheduled mirror job.
-- No DNS record. Inbound access from developers to the tool ports (3000, 8080, 9000, 8081,
-  5000, 8180, 8200, 8083, 8090, 8091, 3001, 9090, 443) and the Gitea SSH port.
+- No DNS record. Inbound access from developers to 80, 443, the Gitea SSH port and the
+  dedicated TLS ports (5000, 8200, 8083, 8090, 8091).
 
 ## Known bottlenecks at five parallel builds
 

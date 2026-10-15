@@ -17,7 +17,7 @@ quality gate. This stack turns those into dashboards and alerts.
 | Services | Prometheus (metrics, 30 days), node-exporter (host), cAdvisor (containers), Loki (logs, 30 days), Promtail (ships every container's stdout to Loki), Grafana |
 | Config | `stacks/observability/prometheus/prometheus.yml`, `loki/loki.yml`, `promtail/promtail.yml`, `grafana/provisioning/` |
 | Data | `${DATA_ROOT}/observability/{prometheus,loki,grafana}` |
-| URLs | `https://<host>:3001` (login `admin` with `GRAFANA_ADMIN_PASSWORD`), `https://<host>:9090` (behind the Traefik dashboard basic auth) |
+| URLs | `https://<host>/grafana` (login `admin` with `GRAFANA_ADMIN_PASSWORD`), `https://<host>/prometheus` (behind the Traefik dashboard basic auth) |
 | Budget | 1 vCPU, 2.5 GB, 40 GB disk |
 
 Prometheus scrapes itself, node-exporter, cAdvisor, Traefik and the Jenkins Prometheus plugin.

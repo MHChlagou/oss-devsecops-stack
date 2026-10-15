@@ -37,6 +37,8 @@ services:
       CASC_JENKINS_CONFIG: /usr/share/jenkins/casc/jenkins.yaml
       JAVA_OPTS: -Djenkins.install.runSetupWizard=false -Duser.timezone=${TZ} -Xms512m -Xmx2g
       JENKINS_URL: ${JENKINS_URL}/
+      # --prefix=/jenkins behind Traefik, empty in ports mode; derived from JENKINS_URL.
+      JENKINS_OPTS: ${JENKINS_OPTS}
       JENKINS_ADMIN_USER: ${JENKINS_ADMIN_USER}
       JENKINS_ADMIN_PASSWORD: ${JENKINS_ADMIN_PASSWORD}
       JENKINS_MAX_AGENTS: ${JENKINS_MAX_AGENTS:-5}
@@ -50,8 +52,8 @@ services:
       - devsecops
     labels:
       - traefik.enable=true
-      - traefik.http.routers.jenkins.rule=PathPrefix(`/`)
-      - traefik.http.routers.jenkins.entrypoints=jenkins
+      - traefik.http.routers.jenkins.rule=PathPrefix(`${JENKINS_URL_PATH}`)
+      - traefik.http.routers.jenkins.entrypoints=websecure
       - traefik.http.routers.jenkins.tls=true
       - traefik.http.services.jenkins.loadbalancer.server.port=8080
 

@@ -16,7 +16,7 @@ the client's Active Directory or LDAP) and every tool trusts it through OIDC.
 | Stack | `stacks/keycloak/docker-compose.yml`, installed by `scripts/20-keycloak.sh` |
 | Images | `KEYCLOAK_IMAGE`, `POSTGRES_IMAGE` |
 | Data | `${DATA_ROOT}/keycloak/db` (PostgreSQL) |
-| URL | `https://<host>:8180/admin/` |
+| URL | `https://<host>/keycloak/admin/` |
 | First login | `admin` with `KEYCLOAK_ADMIN_PASSWORD` from `.env` |
 | Budget | 0.5 vCPU, 1.5 GB |
 
@@ -40,13 +40,13 @@ redirect URI below. Copy the client secret into the tool.
 
 | Tool | Client ID | Redirect URI | Where to configure |
 |---|---|---|---|
-| Gitea | `gitea` | `https://<host>:3000/user/oauth2/keycloak/callback` | Site administration, Authentication sources, OAuth2, provider OpenID Connect, discovery URL `https://<host>:8180/realms/devsecops/.well-known/openid-configuration` |
-| Jenkins | `jenkins` | `https://<host>:8080/securityRealm/finishLogin` | `oic-auth` plugin; add a `securityRealm: oic:` block to the JCasC file instead of the UI |
-| SonarQube | `sonarqube` | `https://<host>:9000/oauth2/callback/oidc` | install the community OpenID Connect plugin into `${DATA_ROOT}/sonarqube/extensions/plugins`, configure under Administration, Authentication |
+| Gitea | `gitea` | `https://<host>/gitea/user/oauth2/keycloak/callback` | Site administration, Authentication sources, OAuth2, provider OpenID Connect, discovery URL `https://<host>/keycloak/realms/devsecops/.well-known/openid-configuration` |
+| Jenkins | `jenkins` | `https://<host>/jenkins/securityRealm/finishLogin` | `oic-auth` plugin; add a `securityRealm: oic:` block to the JCasC file instead of the UI |
+| SonarQube | `sonarqube` | `https://<host>/sonarqube/oauth2/callback/oidc` | install the community OpenID Connect plugin into `${DATA_ROOT}/sonarqube/extensions/plugins`, configure under Administration, Authentication |
 | Nexus | `nexus` | none (header based) | Nexus CE has no OIDC. Put the `traefik-forward-auth` or `oauth2-proxy` container in front of it, or keep local accounts for the few people who administer it |
 | DefectDojo | `defectdojo` | `https://<host>:8083/complete/oidc/` | `DD_SOCIAL_AUTH_OIDC_AUTH_ENABLED=True`, `DD_SOCIAL_AUTH_OIDC_OIDC_ENDPOINT`, `DD_SOCIAL_AUTH_OIDC_KEY`, `DD_SOCIAL_AUTH_OIDC_SECRET` in the compose env; check names against `dojo/settings/settings.dist.py` of the pinned release |
 | Dependency-Track | `dtrack` (public client, PKCE) | `https://<host>:8090/static/oidc-callback.html` | `ALPINE_OIDC_ENABLED=true`, `ALPINE_OIDC_ISSUER`, `ALPINE_OIDC_CLIENT_ID` on the API server, `OIDC_ISSUER` and `OIDC_CLIENT_ID` on the frontend |
-| Grafana | `grafana` | `https://<host>:3001/login/generic_oauth` | `GF_AUTH_GENERIC_OAUTH_*` environment variables |
+| Grafana | `grafana` | `https://<host>/grafana/login/generic_oauth` | `GF_AUTH_GENERIC_OAUTH_*` environment variables |
 
 Switch one tool at a time, keep the local admin account of each tool as a break-glass login,
 and test with a non-admin user before announcing it.

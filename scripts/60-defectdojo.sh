@@ -11,6 +11,6 @@ ensure_dir "$DATA_ROOT/defectdojo/db"
 ensure_dir "$DATA_ROOT/defectdojo/media" 1001:1001
 compose_up defectdojo
 sync_db_password defectdojo defectdojo-db defectdojo "$DEFECTDOJO_DB_PASSWORD"
-wait_for_service defectdojo "$DEFECTDOJO_HTTP_PORT" /login 600
+wait_for_service defectdojo "$DEFECTDOJO_HTTP_PORT" "$DEFECTDOJO_URL" /login 600
 log "DefectDojo: ${DEFECTDOJO_URL} (user admin, password DEFECTDOJO_ADMIN_PASSWORD in .env)"
 log "next: create a product per application and an API key for Jenkins (credential 'defectdojo-api-key')"

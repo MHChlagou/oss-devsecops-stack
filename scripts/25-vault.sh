@@ -29,7 +29,7 @@ storage "file" {
 HCL
 
 compose_up vault
-wait_for_service vault "$VAULT_HTTP_PORT" /v1/sys/health 120 "501|503"
+wait_for_service vault "$VAULT_HTTP_PORT" "$VAULT_URL" /v1/sys/health 120 "501|503"
 cat <<MSG
 Vault is running but sealed. Initialise it once, from a trusted terminal:
   docker exec -it vault vault operator init -key-shares=5 -key-threshold=3

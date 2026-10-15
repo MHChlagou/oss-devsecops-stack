@@ -18,6 +18,6 @@ docker build --quiet \
   -t devsecops/jenkins-agent:local "$STACKS_DIR/jenkins/agent" >/dev/null
 
 compose_up jenkins --build
-wait_for_service jenkins "$JENKINS_HTTP_PORT" /login 300
+wait_for_service jenkins "$JENKINS_HTTP_PORT" "$JENKINS_URL" /login 300
 log "Jenkins: ${JENKINS_URL} (user ${JENKINS_ADMIN_USER}, password JENKINS_ADMIN_PASSWORD in .env)"
 log "pipelines use: agent { label 'docker-agent' }  (see templates/Jenkinsfile.example)"

@@ -29,7 +29,7 @@ If it does not, keep Packagist direct through an HTTP proxy, or run Repman or Sa
 | Stack | `stacks/nexus/docker-compose.yml`, installed by `scripts/55-nexus.sh` |
 | Image | `NEXUS_IMAGE` |
 | Data | `${DATA_ROOT}/nexus/data` (database, blob stores, logs) |
-| URLs | `https://<host>:8081` (UI and package repositories), `https://<host>:5000` (Docker connector on port 5000) |
+| URLs | `https://<host>/nexus` (UI and package repositories), `https://<host>:5000` (Docker connector on port 5000) |
 | First login | `admin`, password in `${DATA_ROOT}/nexus/data/admin.password`, change forced, file deleted afterwards |
 | Heap | 2 GB heap, 2 GB direct memory (`INSTALL4J_ADD_VM_PARAMS`) |
 | Budget | 2 vCPU under load, 4.5 GB |
@@ -57,12 +57,12 @@ In the Jenkins agent or in each project:
 
 ```ini
 # .npmrc
-registry=https://<host>:8081/repository/npm-group/
+registry=https://<host>/nexus/repository/npm-group/
 ```
 
 ```json
 // composer.json
-"repositories": [{ "type": "composer", "url": "https://<host>:8081/repository/composer-proxy/" }],
+"repositories": [{ "type": "composer", "url": "https://<host>/nexus/repository/composer-proxy/" }],
 "config": { "secure-http": true }
 ```
 

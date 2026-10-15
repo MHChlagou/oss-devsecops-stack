@@ -8,7 +8,7 @@ load_env
 ensure_network
 ensure_dir "$DATA_ROOT/nexus/data" 200:200
 compose_up nexus
-wait_for_service nexus "$NEXUS_HTTP_PORT" /service/rest/v1/status 600
+wait_for_service nexus "$NEXUS_HTTP_PORT" "$NEXUS_URL" /service/rest/v1/status 600
 log "Nexus: ${NEXUS_URL}"
 log "first admin password: sudo cat ${DATA_ROOT}/nexus/data/admin.password (deleted after the first login)"
 log "next: create repositories npm-proxy, composer-proxy, docker-hosted (HTTP connector port 5000 -> ${REGISTRY_HOST})"

@@ -102,7 +102,7 @@ page under `docs/`.
 ### Platform services
 
 - [Traefik](docs/tools/traefik.md) is the single entry point. It terminates TLS, serves every
-  tool on its own port of the host address, and discovers new services from their Docker labels.
+  tool under its own path of the host address, and discovers new services from their Docker labels.
 - [Keycloak](docs/tools/keycloak.md) provides one login for every tool through OpenID Connect,
   with groups that map to roles, and can federate the client's existing directory.
 - [Vault](docs/tools/vault.md) stores the secrets pipelines need (registry passwords, API tokens,
@@ -126,16 +126,16 @@ describe the four-tool core and what each missing service costs you in practice.
 | Order | Component | Script | URL (`<host>` is `HOST_ADDRESS`: server name or IP) |
 |---|---|---|---|
 | 00 | Docker, sysctl, `.env`, network | `scripts/00-prereqs.sh` | |
-| 10 | Traefik | `scripts/10-traefik.sh` | `https://<host>:443/dashboard/` |
-| 20 | Keycloak | `scripts/20-keycloak.sh` | `https://<host>:8180` |
-| 25 | Vault | `scripts/25-vault.sh` | `https://<host>:8200` |
-| 30 | Gitea | `scripts/30-gitea.sh` | `https://<host>:3000`, SSH on 2222 |
-| 40 | Jenkins + agent image + socket proxy | `scripts/40-jenkins.sh` | `https://<host>:8080` |
-| 50 | SonarQube Community Build | `scripts/50-sonarqube.sh` | `https://<host>:9000` |
-| 55 | Nexus Repository CE | `scripts/55-nexus.sh` | `https://<host>:8081`, registry `<host>:5000` |
-| 60 | DefectDojo | `scripts/60-defectdojo.sh` | `https://<host>:8083` |
-| 65 | Dependency-Track | `scripts/65-dependency-track.sh` | `https://<host>:8090`, API `https://<host>:8091` |
-| 70 | Prometheus, Grafana, Loki, Promtail, exporters | `scripts/70-observability.sh` | `https://<host>:3001`, `https://<host>:9090` |
+| 10 | Traefik | `scripts/10-traefik.sh` | `https://<host>/dashboard/` |
+| 20 | Keycloak | `scripts/20-keycloak.sh` | `https://<host>/keycloak` |
+| 25 | Vault | `scripts/25-vault.sh` | `https://<host>:8200` (own TLS port) |
+| 30 | Gitea | `scripts/30-gitea.sh` | `https://<host>/gitea`, SSH on 2222 |
+| 40 | Jenkins + agent image + socket proxy | `scripts/40-jenkins.sh` | `https://<host>/jenkins` |
+| 50 | SonarQube Community Build | `scripts/50-sonarqube.sh` | `https://<host>/sonarqube` |
+| 55 | Nexus Repository CE | `scripts/55-nexus.sh` | `https://<host>/nexus`, registry `<host>:5000` (own TLS port) |
+| 60 | DefectDojo | `scripts/60-defectdojo.sh` | `https://<host>:8083` (own TLS port) |
+| 65 | Dependency-Track | `scripts/65-dependency-track.sh` | `https://<host>:8090`, API `https://<host>:8091` (own TLS ports) |
+| 70 | Prometheus, Grafana, Loki, Promtail, exporters | `scripts/70-observability.sh` | `https://<host>/grafana`, `https://<host>/prometheus` |
 | 80 | Scanner CLI wrappers (Trivy, Gitleaks, Semgrep, Syft, hadolint, Checkov, KICS, ZAP) | `scripts/80-scanners.sh` | |
 
 Each component is a Docker Compose project under `stacks/<name>/` with its data under
@@ -155,8 +155,9 @@ per-service budgets and the two-host layout are in [docs/sizing.md](docs/sizing.
 - Debian 12/13 or Ubuntu 22.04/24.04, root access, Docker Engine 29 (installed by the prereqs
   script if missing), outbound internet for image pulls and
   vulnerability feeds.
-- No DNS record. Tools are reached at the host's name or IP (`HOST_ADDRESS` in `.env`), one
-  port per tool as listed above; those ports and the Gitea SSH port must be free.
+- No DNS record. Tools are reached at the host's name or IP (`HOST_ADDRESS` in `.env`) under
+  their own path on 443. Ports 80, 443, the Gitea SSH port and the dedicated TLS ports listed
+  above (5000, 8200, 8083, 8090, 8091) must be free.
 - A smaller host can run a subset with `--only`; the prerequisites script warns when the
   host is below the budget for the selected components and agent count. The four-tool core
   (Jenkins, Gitea, Nexus, SonarQube) with its hosts and prices is in [docs/minimal-setup.md](docs/minimal-setup.md),
@@ -182,9 +183,11 @@ resets the environment. `HOST_ADDRESS` can be the server name or its IP; left ou
 host IP is used. Later runs read `.env`, so edit that file to change a setting.
 
 Ingress: `INGRESS=traefik` (default) puts Traefik in front of every tool, with TLS, at
-`https://<host>:<port>`. `INGRESS=ports` publishes Gitea, Jenkins, SonarQube and Nexus on the
-same ports with no proxy and plain HTTP, for the strict minimum profile or behind a proxy the
-client already runs. Neither mode needs a DNS zone: `HOST_ADDRESS` can be an IP.
+`https://<host>/<tool>`; port 80 redirects there. The Docker registry, Vault, DefectDojo and
+Dependency-Track cannot run under a sub-path and keep a TLS port of their own. `INGRESS=ports`
+publishes Gitea, Jenkins, SonarQube and Nexus on host ports with no proxy and plain HTTP, for
+the strict minimum profile or behind a proxy the client already runs. Neither mode needs a
+DNS zone: `HOST_ADDRESS` can be an IP.
 
 The installer keeps going when a component fails and prints the list to rerun at the end.
 Rerunning a component is safe: compose only recreates what changed.
@@ -200,7 +203,7 @@ client's CA in that directory as `server.crt` and `server.key` and rerun the Tra
 1. Vault: `docker exec -it vault vault operator init`, store the unseal keys offline, unseal.
 2. Nexus: read `${DATA_ROOT}/nexus/data/admin.password`, log in, create `npm-proxy`,
    `composer-proxy`, `docker-hosted` (HTTP connector on port 5000, enable Docker Bearer Token realm).
-3. SonarQube: change the admin password, add the webhook `https://<host>:8080/sonarqube-webhook/`,
+3. SonarQube: change the admin password, add the webhook `https://<host>/jenkins/sonarqube-webhook/`,
    create a global analysis token, add it to Jenkins as `sonarqube-token`, and configure the
    server under Manage Jenkins, System, SonarQube servers with name `sonarqube`.
 4. Dependency-Track: change admin password, create an automation team and API key, Jenkins credential `dtrack-api-key`.
@@ -209,7 +212,7 @@ client's CA in that directory as `server.crt` and `server.key` and rerun the Tra
    (Gitea authentication source of type OpenID Connect, Jenkins oic-auth plugin, SonarQube OIDC plugin, Grafana generic OAuth).
 7. Gitea: log in as `gitea_admin`, change the password, create an organisation and a repository.
    In Jenkins add the Gitea server under Manage Jenkins, System, Gitea Servers, then create a
-   Gitea Organization folder job. Webhooks go to `https://<host>:8080/gitea-webhook/post`.
+   Gitea Organization folder job. Webhooks go to `https://<host>/jenkins/gitea-webhook/post`.
    Copy `templates/Jenkinsfile.example` into the repository.
 8. Developers: `cp templates/pre-commit .git/hooks/pre-commit` in every clone.
 9. Backups: snapshot `${DATA_ROOT}` nightly. Gitea also offers `gitea dump` for a consistent archive.

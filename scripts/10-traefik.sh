@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Traefik: TLS termination, one entry point per tool at https://${HOST_ADDRESS}:<port>, routes
-# built from Docker labels. No DNS record is needed: the certificate is issued for HOST_ADDRESS.
+# Traefik: TLS termination and reverse proxy at https://${HOST_ADDRESS}/<tool>, routes built
+# from Docker labels. No DNS record is needed: the certificate is issued for HOST_ADDRESS.
 set -euo pipefail
 # shellcheck source=../lib/common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
@@ -46,8 +46,9 @@ tls:
         keyFile: /certs/server.key
 DYNAMIC
 
-# Static config: one TLS entry point per tool, named after the router that uses it in the
-# stack's compose labels. The ports are the same ones ports mode publishes directly.
+# Static config. websecure carries every sub-path tool; the registry, Vault, DefectDojo and
+# Dependency-Track cannot run under a sub-path and keep a TLS entry point of their own. Plain
+# HTTP on TRAEFIK_HTTP_PORT redirects to HTTPS.
 entrypoint() { printf '  %s:\n    address: ":%s"\n' "$1" "$2"; }
 {
   cat <<STATIC
@@ -62,20 +63,20 @@ metrics:
 entryPoints:
   metrics:
     address: ":8082"
+  web:
+    address: ":${TRAEFIK_HTTP_PORT}"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
 STATIC
-  entrypoint websecure "$TRAEFIK_DASHBOARD_PORT"
-  entrypoint gitea "$GITEA_HTTP_PORT"
-  entrypoint jenkins "$JENKINS_HTTP_PORT"
-  entrypoint sonarqube "$SONARQUBE_HTTP_PORT"
-  entrypoint nexus "$NEXUS_HTTP_PORT"
+  entrypoint websecure "$TRAEFIK_HTTPS_PORT"
   entrypoint registry "$REGISTRY_PORT"
-  entrypoint keycloak "$KEYCLOAK_HTTP_PORT"
   entrypoint vault "$VAULT_HTTP_PORT"
   entrypoint defectdojo "$DEFECTDOJO_HTTP_PORT"
   entrypoint dtrack "$DTRACK_HTTP_PORT"
   entrypoint dtrack-api "$DTRACK_API_PORT"
-  entrypoint grafana "$GRAFANA_HTTP_PORT"
-  entrypoint prometheus "$PROMETHEUS_HTTP_PORT"
   cat <<STATIC
 providers:
   docker:
@@ -88,6 +89,6 @@ STATIC
 } > "$DATA_ROOT/traefik/traefik.yml"
 
 compose_up traefik
-wait_for_service traefik "$TRAEFIK_DASHBOARD_PORT" /dashboard/ 60
+wait_for_service traefik "$TRAEFIK_HTTPS_PORT" "$TRAEFIK_URL" /dashboard/ 60
 log "Traefik dashboard: ${TRAEFIK_URL}/dashboard/ (user ${TRAEFIK_DASHBOARD_USER}, password TRAEFIK_DASHBOARD_PASSWORD in .env)"
 log "certificate: ${CERT_DIR}/server.crt. Import it on developer machines, or replace server.crt/server.key with one from the client's CA and rerun."

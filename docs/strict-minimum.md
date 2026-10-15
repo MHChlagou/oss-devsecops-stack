@@ -159,9 +159,9 @@ sed -i 's/^INGRESS=.*/INGRESS=traefik/' .env
 sudo ./install.sh --only traefik,gitea,jenkins,sonarqube,nexus
 ```
 
-Traefik then serves the same ports over HTTPS with a certificate generated for `HOST_ADDRESS`
-(see [traefik.md](tools/traefik.md)), and the rerun rewrites each tool's public URL. After
-that, add the other components one at a time as described in the minimal setup page. The
-ports stay the same, but every URL switches from `http` to `https`: webhooks and developer
-remotes created before the switch need updating, so decide the ingress mode before the first
+Traefik then serves every tool under its own path on one HTTPS port, `https://<host>/gitea`
+and so on, with a certificate generated for `HOST_ADDRESS` (see [traefik.md](tools/traefik.md)),
+and the rerun tells each tool its new URL. After that, add the other components one at a time
+as described in the minimal setup page. Every URL changes: webhooks and developer remotes
+created before the switch need updating, so decide the ingress mode before the first
 repository is created.

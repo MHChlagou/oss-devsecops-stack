@@ -5,6 +5,8 @@ services:
     restart: unless-stopped
     environment:
       TZ: ${TZ}
+      # Context path without the leading slash (nexus behind Traefik, empty in ports mode).
+      NEXUS_CONTEXT: ${NEXUS_CONTEXT}
       INSTALL4J_ADD_VM_PARAMS: -Xms2g -Xmx2g -XX:MaxDirectMemorySize=2g -Djava.util.prefs.userRoot=/nexus-data/javaprefs
     volumes:
       - ${DATA_ROOT}/nexus/data:/nexus-data
@@ -12,12 +14,13 @@ services:
       - devsecops
     labels:
       - traefik.enable=true
-      - traefik.http.routers.nexus.rule=PathPrefix(`/`)
-      - traefik.http.routers.nexus.entrypoints=nexus
+      - traefik.http.routers.nexus.rule=PathPrefix(`${NEXUS_URL_PATH}`)
+      - traefik.http.routers.nexus.entrypoints=websecure
       - traefik.http.routers.nexus.tls=true
       - traefik.http.routers.nexus.service=nexus
       - traefik.http.services.nexus.loadbalancer.server.port=8081
-      # Docker registry connector (configure a hosted docker repo on HTTP port 5000 in the Nexus UI)
+      # Docker registry connector on its own TLS port: Docker clients need /v2/ at the root.
+      # Configure a hosted docker repo with HTTP connector port 5000 in the Nexus UI.
       - traefik.http.routers.registry.rule=PathPrefix(`/`)
       - traefik.http.routers.registry.entrypoints=registry
       - traefik.http.routers.registry.tls=true

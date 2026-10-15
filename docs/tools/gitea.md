@@ -22,7 +22,7 @@ compatible fork with the same configuration if the client prefers a community-go
 | Stack | `stacks/gitea/docker-compose.yml`, installed by `scripts/30-gitea.sh` |
 | Images | `GITEA_IMAGE`, `POSTGRES_IMAGE` |
 | Data | `${DATA_ROOT}/gitea/data` (repositories, LFS, attachments, `gitea/conf/app.ini`), `${DATA_ROOT}/gitea/db` |
-| URL | `https://<host>:3000` |
+| URL | `https://<host>/gitea` |
 | SSH | host port `GITEA_SSH_PORT` (2222), clone URLs advertise it automatically |
 | First login | `gitea_admin` with `GITEA_ADMIN_PASSWORD` from `.env`, password change forced |
 | Budget | 1 vCPU, 1.5 GB |
@@ -50,13 +50,13 @@ into `app.ini` on first start. Settings chosen here:
 ## Jenkins integration
 
 The Jenkins `gitea` plugin is installed. In Jenkins: Manage Jenkins, System, Gitea Servers,
-add `https://<host>:3000` with a Gitea access token (Settings, Applications in Gitea, scopes
+add `https://<host>/gitea` with a Gitea access token (Settings, Applications in Gitea, scopes
 `read:organization`, `read:repository`, `write:repository` for commit statuses). Tick "Manage
 hooks" so Jenkins creates the webhooks itself. Then create a "Gitea Organization" job: every
 repository with a Jenkinsfile gets a multibranch pipeline, and pull requests get built and
 reported back as commit statuses.
 
-Manual webhook, when needed: `https://<host>:8080/gitea-webhook/post`, content type JSON,
+Manual webhook, when needed: `https://<host>/jenkins/gitea-webhook/post`, content type JSON,
 events push and pull request.
 
 ## Operations

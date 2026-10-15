@@ -30,6 +30,7 @@ services:
       SONAR_JDBC_USERNAME: sonar
       SONAR_JDBC_PASSWORD: ${SONAR_DB_PASSWORD}
       SONAR_CORE_SERVERBASEURL: ${SONARQUBE_URL}
+      SONAR_WEB_CONTEXT: ${SONARQUBE_URL_PATH}
       SONAR_WEB_JAVAOPTS: -Xms512m -Xmx1g
       SONAR_CE_JAVAOPTS: -Xms512m -Xmx2g
       SONAR_SEARCH_JAVAOPTS: -Xms1g -Xmx1g
@@ -47,8 +48,8 @@ services:
       - devsecops
     labels:
       - traefik.enable=true
-      - traefik.http.routers.sonarqube.rule=PathPrefix(`/`)
-      - traefik.http.routers.sonarqube.entrypoints=sonarqube
+      - traefik.http.routers.sonarqube.rule=PathPrefix(`${SONARQUBE_URL_PATH}`)
+      - traefik.http.routers.sonarqube.entrypoints=websecure
       - traefik.http.routers.sonarqube.tls=true
       - traefik.http.services.sonarqube.loadbalancer.server.port=9000
 

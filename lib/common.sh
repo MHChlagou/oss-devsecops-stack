@@ -35,56 +35,95 @@ load_env() {
   derive_urls
 }
 
-# Public URLs. Every tool is reached on HOST_ADDRESS (server name or IP, no DNS zone needed)
-# at its own port: https through Traefik, plain http in ports mode. Explicit *_URL values in
-# .env win (external proxy case).
+# url_path_of <url>: the path part without its trailing slash, empty for a root URL.
+url_path_of() {
+  local rest="${1#*://}" path=""
+  [[ "$rest" == */* ]] && path="/${rest#*/}"
+  printf '%s' "${path%/}"
+}
+
+# Public URLs. HOST_ADDRESS is the server name or IP, no DNS zone needed.
+#   traefik: one HTTPS port, https://HOST_ADDRESS/<tool> for every tool that runs under a
+#            sub-path; its own TLS port for the Docker registry, Vault, DefectDojo and
+#            Dependency-Track, which cannot.
+#   ports:   no proxy, http://HOST_ADDRESS:<port> for gitea, jenkins, sonarqube and nexus.
+# Explicit *_URL values in .env win (external proxy case). The sub-path each tool is told
+# about is derived from its URL, so route and application cannot disagree.
 derive_urls() {
   INGRESS="${INGRESS:-traefik}"
-  local scheme
-  case "$INGRESS" in
-    traefik) scheme=https ;;
-    ports) scheme=http ;;
-    *) die "INGRESS must be traefik or ports, got '$INGRESS'" ;;
-  esac
   : "${HOST_ADDRESS:=$(hostname -I 2>/dev/null | awk '{print $1}')}"
   [[ -n "$HOST_ADDRESS" ]] || die "HOST_ADDRESS must be set in .env (server name or IP)"
+  : "${TRAEFIK_HTTP_PORT:=80}"
+  : "${TRAEFIK_HTTPS_PORT:=443}"
   : "${GITEA_HTTP_PORT:=3000}"
   : "${JENKINS_HTTP_PORT:=8080}"
   : "${SONARQUBE_HTTP_PORT:=9000}"
   : "${NEXUS_HTTP_PORT:=8081}"
   : "${REGISTRY_PORT:=5000}"
-  : "${KEYCLOAK_HTTP_PORT:=8180}"
   : "${VAULT_HTTP_PORT:=8200}"
   : "${DEFECTDOJO_HTTP_PORT:=8083}"
   : "${DTRACK_HTTP_PORT:=8090}"
   : "${DTRACK_API_PORT:=8091}"
-  : "${GRAFANA_HTTP_PORT:=3001}"
-  : "${PROMETHEUS_HTTP_PORT:=9090}"
-  : "${TRAEFIK_DASHBOARD_PORT:=443}"
-  : "${GITEA_URL:=${scheme}://${HOST_ADDRESS}:${GITEA_HTTP_PORT}}"
-  : "${JENKINS_URL:=${scheme}://${HOST_ADDRESS}:${JENKINS_HTTP_PORT}}"
-  : "${SONARQUBE_URL:=${scheme}://${HOST_ADDRESS}:${SONARQUBE_HTTP_PORT}}"
-  : "${NEXUS_URL:=${scheme}://${HOST_ADDRESS}:${NEXUS_HTTP_PORT}}"
+  local base
+  case "$INGRESS" in
+    traefik)
+      base="https://${HOST_ADDRESS}"
+      [[ "$TRAEFIK_HTTPS_PORT" == 443 ]] || base="${base}:${TRAEFIK_HTTPS_PORT}"
+      : "${TRAEFIK_URL:=${base}}"
+      : "${GITEA_URL:=${base}/gitea}"
+      : "${JENKINS_URL:=${base}/jenkins}"
+      : "${SONARQUBE_URL:=${base}/sonarqube}"
+      : "${NEXUS_URL:=${base}/nexus}"
+      : "${KEYCLOAK_URL:=${base}/keycloak}"
+      : "${GRAFANA_URL:=${base}/grafana}"
+      : "${PROMETHEUS_URL:=${base}/prometheus}"
+      ;;
+    ports)
+      : "${GITEA_URL:=http://${HOST_ADDRESS}:${GITEA_HTTP_PORT}}"
+      : "${JENKINS_URL:=http://${HOST_ADDRESS}:${JENKINS_HTTP_PORT}}"
+      : "${SONARQUBE_URL:=http://${HOST_ADDRESS}:${SONARQUBE_HTTP_PORT}}"
+      : "${NEXUS_URL:=http://${HOST_ADDRESS}:${NEXUS_HTTP_PORT}}"
+      TRAEFIK_URL="" KEYCLOAK_URL="" GRAFANA_URL="" PROMETHEUS_URL=""
+      ;;
+    *) die "INGRESS must be traefik or ports, got '$INGRESS'" ;;
+  esac
   : "${REGISTRY_HOST:=${HOST_ADDRESS}:${REGISTRY_PORT}}"
-  : "${KEYCLOAK_URL:=https://${HOST_ADDRESS}:${KEYCLOAK_HTTP_PORT}}"
   : "${VAULT_URL:=https://${HOST_ADDRESS}:${VAULT_HTTP_PORT}}"
   : "${DEFECTDOJO_URL:=https://${HOST_ADDRESS}:${DEFECTDOJO_HTTP_PORT}}"
   : "${DTRACK_URL:=https://${HOST_ADDRESS}:${DTRACK_HTTP_PORT}}"
   : "${DTRACK_API_URL:=https://${HOST_ADDRESS}:${DTRACK_API_PORT}}"
-  : "${GRAFANA_URL:=https://${HOST_ADDRESS}:${GRAFANA_HTTP_PORT}}"
-  : "${PROMETHEUS_URL:=https://${HOST_ADDRESS}:${PROMETHEUS_HTTP_PORT}}"
-  : "${TRAEFIK_URL:=https://${HOST_ADDRESS}:${TRAEFIK_DASHBOARD_PORT}}"
+  GITEA_URL_PATH="$(url_path_of "$GITEA_URL")"
+  JENKINS_URL_PATH="$(url_path_of "$JENKINS_URL")"
+  SONARQUBE_URL_PATH="$(url_path_of "$SONARQUBE_URL")"
+  NEXUS_URL_PATH="$(url_path_of "$NEXUS_URL")"
+  KEYCLOAK_URL_PATH="$(url_path_of "$KEYCLOAK_URL")"
+  GRAFANA_URL_PATH="$(url_path_of "$GRAFANA_URL")"
+  PROMETHEUS_URL_PATH="$(url_path_of "$PROMETHEUS_URL")"
+  if [[ "$INGRESS" == traefik ]]; then
+    local v
+    for v in GITEA JENKINS SONARQUBE NEXUS KEYCLOAK GRAFANA PROMETHEUS; do
+      [[ -n "$(eval "printf '%s' \"\$${v}_URL_PATH\"")" ]] || die "${v}_URL must keep a sub-path (for example /${v,,}) with INGRESS=traefik: every tool shares port ${TRAEFIK_HTTPS_PORT}"
+    done
+  fi
+  # What each tool is told about its sub-path (empty values mean the root, as in ports mode).
+  JENKINS_OPTS=""
+  [[ -n "$JENKINS_URL_PATH" ]] && JENKINS_OPTS="--prefix=${JENKINS_URL_PATH}"
+  NEXUS_CONTEXT="${NEXUS_URL_PATH#/}"
+  KC_HTTP_RELATIVE_PATH="${KEYCLOAK_URL_PATH:-/}"
+  GRAFANA_SERVE_FROM_SUB_PATH=false
+  [[ -n "$GRAFANA_URL_PATH" ]] && GRAFANA_SERVE_FROM_SUB_PATH=true
   # Gitea matches webhook targets by host, not port, so this is the platform host and nothing else.
   : "${GITEA_WEBHOOK_ALLOWED_HOSTS:=${HOST_ADDRESS}}"
   : "${ADMIN_EMAIL:=devsecops@localhost}"
   GITEA_HOST="${GITEA_URL#*://}"; GITEA_HOST="${GITEA_HOST%%/*}"; GITEA_HOST="${GITEA_HOST%%:*}"
   export INGRESS HOST_ADDRESS ADMIN_EMAIL \
-         GITEA_HTTP_PORT JENKINS_HTTP_PORT SONARQUBE_HTTP_PORT NEXUS_HTTP_PORT REGISTRY_PORT \
-         KEYCLOAK_HTTP_PORT VAULT_HTTP_PORT DEFECTDOJO_HTTP_PORT DTRACK_HTTP_PORT DTRACK_API_PORT \
-         GRAFANA_HTTP_PORT PROMETHEUS_HTTP_PORT TRAEFIK_DASHBOARD_PORT \
-         GITEA_URL JENKINS_URL SONARQUBE_URL NEXUS_URL REGISTRY_HOST KEYCLOAK_URL VAULT_URL \
-         DEFECTDOJO_URL DTRACK_URL DTRACK_API_URL GRAFANA_URL PROMETHEUS_URL TRAEFIK_URL \
-         GITEA_WEBHOOK_ALLOWED_HOSTS GITEA_HOST
+         TRAEFIK_HTTP_PORT TRAEFIK_HTTPS_PORT GITEA_HTTP_PORT JENKINS_HTTP_PORT SONARQUBE_HTTP_PORT \
+         NEXUS_HTTP_PORT REGISTRY_PORT VAULT_HTTP_PORT DEFECTDOJO_HTTP_PORT DTRACK_HTTP_PORT DTRACK_API_PORT \
+         TRAEFIK_URL GITEA_URL JENKINS_URL SONARQUBE_URL NEXUS_URL REGISTRY_HOST KEYCLOAK_URL VAULT_URL \
+         DEFECTDOJO_URL DTRACK_URL DTRACK_API_URL GRAFANA_URL PROMETHEUS_URL \
+         GITEA_URL_PATH JENKINS_URL_PATH SONARQUBE_URL_PATH NEXUS_URL_PATH KEYCLOAK_URL_PATH \
+         GRAFANA_URL_PATH PROMETHEUS_URL_PATH JENKINS_OPTS NEXUS_CONTEXT KC_HTTP_RELATIVE_PATH \
+         GRAFANA_SERVE_FROM_SUB_PATH GITEA_WEBHOOK_ALLOWED_HOSTS GITEA_HOST
 }
 
 # Components that only work behind Traefik call this first.
@@ -213,19 +252,25 @@ crash_looping() {
     | awk '$2 == "restarting" || $3 >= 2 { sub("^/", "", $1); printf "%s ", $1 }'
 }
 
-# wait_for_service <name> <host-port> [path] [timeout] [extra-codes]. Polls the published port
-# on localhost: Traefik's TLS entry point for that tool, or the container's own port in ports
-# mode. Up means 2xx, 3xx, 401 or 403, plus any extra regex given (Vault answers 501/503
-# while sealed). 404 is not up: behind Traefik it is the proxy answering for a backend that
-# has not registered yet. Connection errors are expected while the tool starts and are not
-# printed. A container stuck restarting, or the timeout, ends the wait with the stack's logs
-# and a non-zero status so install.sh reports the component as failed.
+# wait_for_service <name> <host-port> <public-url> [path] [timeout] [extra-codes]. Polls the
+# tool through localhost: in ports mode the container's published host port, behind Traefik
+# the TLS port and sub-path taken from the tool's public URL. Up means 2xx, 3xx, 401 or 403,
+# plus any extra regex given (Vault answers 501/503 while sealed). 404 is not up: behind
+# Traefik it is the proxy answering for a backend that has not registered yet. Connection
+# errors are expected while the tool starts and are not printed. A container stuck
+# restarting, or the timeout, ends the wait with the stack's logs and a non-zero status so
+# install.sh reports the component as failed.
 wait_for_service() {
-  local name="$1" port="$2" path="${3:-/}" timeout="${4:-300}" extra="${5:-}" elapsed=0 url restarting
-  local scheme=https up_codes='^([23][0-9]{2}|401|403)$'
+  local name="$1" port="$2" public_url="$3" path="${4:-/}" timeout="${5:-300}" extra="${6:-}"
+  local elapsed=0 url restarting hostport up_codes='^([23][0-9]{2}|401|403)$'
   [[ -n "$extra" ]] && up_codes="^([23][0-9]{2}|401|403|${extra})$"
-  [[ "$INGRESS" == ports ]] && scheme=http
-  url="${scheme}://127.0.0.1:${port}${path}"
+  if [[ "$INGRESS" == ports ]]; then
+    url="http://127.0.0.1:${port}${path}"
+  else
+    hostport="${public_url#*://}"; hostport="${hostport%%/*}"
+    port="${hostport##*:}"; [[ "$port" != "$hostport" ]] || port=443
+    url="https://127.0.0.1:${port}$(url_path_of "$public_url")${path}"
+  fi
   log "waiting for $name at $url (up to ${timeout}s)"
   until curl -ks -o /dev/null -w '%{http_code}' --max-time 5 "$url" 2>/dev/null | grep -qE "$up_codes"; do
     sleep 5

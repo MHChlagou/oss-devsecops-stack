@@ -4,30 +4,37 @@ Reverse proxy and TLS termination for every web interface in the stack.
 
 ## Role in the chain
 
-Every tool is reached at `https://<host>:<port>`, where `<host>` is `HOST_ADDRESS` from `.env`
-(the server's name on the client's network, or its IP) and the port is the tool's own. No DNS
-record is needed. Traefik listens on every tool port, terminates TLS with one certificate
-issued for the host address, and forwards each port to the container whose `traefik.*` labels
-name that entry point. No tool publishes a host port itself except Gitea SSH.
+Every tool is reached at `https://<host>/<tool>`, where `<host>` is `HOST_ADDRESS` from `.env`
+(the server's name on the client's network, or its IP). No DNS record is needed. Traefik
+listens on one HTTPS port, terminates TLS with a certificate issued for the host address, and
+forwards each path prefix to the container whose `traefik.*` labels claim it. The tool itself
+is told the same prefix (Jenkins `--prefix`, SonarQube web context, Nexus context path, Gitea
+root URL, Keycloak relative path, Grafana sub-path), so every link and redirect it generates
+stays under its path. Plain HTTP on port 80 redirects to HTTPS.
 
-| Entry point | Port variable | Default | Serves |
+| Path | Tool | Prefix setting in the container |
+|---|---|---|
+| `/gitea` | Gitea | prefix stripped by Traefik, links rebuilt from `GITEA__server__ROOT_URL` |
+| `/jenkins` | Jenkins | `JENKINS_OPTS=--prefix=/jenkins` |
+| `/sonarqube` | SonarQube | `SONAR_WEB_CONTEXT` |
+| `/nexus` | Nexus UI and package repositories | `NEXUS_CONTEXT` |
+| `/keycloak` | Keycloak | `KC_HTTP_RELATIVE_PATH` |
+| `/grafana` | Grafana | `GF_SERVER_SERVE_FROM_SUB_PATH` |
+| `/prometheus` | Prometheus, behind the dashboard's basic auth | prefix stripped by Traefik, `--web.route-prefix=/` |
+| `/dashboard/`, `/api/` | Traefik dashboard and API, basic auth | |
+
+Four things cannot live under a sub-path and keep a TLS entry point of their own on the
+same certificate:
+
+| Port variable | Default | Serves | Why its own port |
 |---|---|---|---|
-| `websecure` | `TRAEFIK_DASHBOARD_PORT` | 443 | Traefik dashboard, `/dashboard/` |
-| `gitea` | `GITEA_HTTP_PORT` | 3000 | Gitea |
-| `jenkins` | `JENKINS_HTTP_PORT` | 8080 | Jenkins |
-| `sonarqube` | `SONARQUBE_HTTP_PORT` | 9000 | SonarQube |
-| `nexus` | `NEXUS_HTTP_PORT` | 8081 | Nexus UI and package repositories |
-| `registry` | `REGISTRY_PORT` | 5000 | Nexus Docker registry connector |
-| `keycloak` | `KEYCLOAK_HTTP_PORT` | 8180 | Keycloak |
-| `vault` | `VAULT_HTTP_PORT` | 8200 | Vault UI and API |
-| `defectdojo` | `DEFECTDOJO_HTTP_PORT` | 8083 | DefectDojo |
-| `dtrack` | `DTRACK_HTTP_PORT` | 8090 | Dependency-Track frontend |
-| `dtrack-api` | `DTRACK_API_PORT` | 8091 | Dependency-Track API server |
-| `grafana` | `GRAFANA_HTTP_PORT` | 3001 | Grafana |
-| `prometheus` | `PROMETHEUS_HTTP_PORT` | 9090 | Prometheus, behind the dashboard's basic auth |
+| `REGISTRY_PORT` | 5000 | Nexus Docker registry connector | Docker clients require `/v2/` at the root |
+| `VAULT_HTTP_PORT` | 8200 | Vault UI and API | the UI has no base-path setting |
+| `DEFECTDOJO_HTTP_PORT` | 8083 | DefectDojo | static assets served from the root |
+| `DTRACK_HTTP_PORT`, `DTRACK_API_PORT` | 8090, 8091 | Dependency-Track frontend and API | static frontend, API called from the browser |
 
-The same port numbers are published directly by the containers in `INGRESS=ports` mode, so
-switching modes changes the scheme of every URL and nothing else.
+In `INGRESS=ports` mode there is no Traefik: Gitea, Jenkins, SonarQube and Nexus publish
+their own ports at the root path over plain HTTP, and every prefix setting above is empty.
 
 ## Deployment
 
@@ -39,7 +46,7 @@ switching modes changes the scheme of every URL and nothing else.
 | Dynamic config | `${DATA_ROOT}/traefik/dynamic/tls.yml`, declares the default certificate |
 | Certificate | `${DATA_ROOT}/traefik/certs/server.crt` and `server.key` |
 | Data | `certs/`, `usersfile` (dashboard login) |
-| URL | `https://<host>:443/dashboard/`, basic auth from `TRAEFIK_DASHBOARD_USER` and `TRAEFIK_DASHBOARD_PASSWORD` |
+| URL | `https://<host>/dashboard/`, basic auth from `TRAEFIK_DASHBOARD_USER` and `TRAEFIK_DASHBOARD_PASSWORD` |
 | Metrics | `:8082/metrics` inside the container, scraped by Prometheus |
 | Budget | 0.5 vCPU, 128 MB |
 
@@ -68,27 +75,30 @@ Nexus, Dependency-Track) so that service-to-service calls validate.
 Let's Encrypt does not apply here: public CAs do not issue certificates for private names or
 IP addresses, which is the whole point of this setup.
 
-Changing a port: edit the variable in `.env`, then rerun Traefik and the tool concerned
+Changing a path or a dedicated port: set the tool's `*_URL` in `.env` (it must keep a path in
+Traefik mode) or edit the port variable, then rerun Traefik and the tool concerned
 (`sudo ./install.sh --only traefik,gitea`), because the tool's public URL changes with it.
 
 ## Operations
 
 - Logs: `docker logs traefik`. Access logs are on, one line per request.
-- Add a service: add a port variable to `.env.example` and `lib/common.sh`, an `entrypoint`
-  line in `scripts/10-traefik.sh`, a `ports:` entry in `stacks/traefik/docker-compose.yml`, and
-  give the container the labels `traefik.enable=true`, `rule=PathPrefix(`/`)`,
-  `entrypoints=<name>`, `tls=true` and `loadbalancer.server.port`. Copy the block from any stack.
+- Add a service under a path: derive its URL and path in `lib/common.sh`, configure the tool
+  for that prefix, and give the container the labels `traefik.enable=true`,
+  `rule=PathPrefix(`<path>`)`, `entrypoints=websecure`, `tls=true` and `loadbalancer.server.port`.
+  A tool that cannot run under a prefix gets a port variable, an `entrypoint` line in
+  `scripts/10-traefik.sh`, a `ports:` entry in `stacks/traefik/docker-compose.yml` and
+  `entrypoints=<name>` with `rule=PathPrefix(`/`)`. Copy from any stack.
+- Plain `http://` on port 80 redirects to HTTPS; on a dedicated TLS port it is answered 404.
 - Upgrade: bump `TRAEFIK_IMAGE`, run `sudo ./install.sh --only traefik`. Static config is
   regenerated on each run, so make lasting edits in `scripts/10-traefik.sh`. Never pin below
   `v3.7`: older releases speak a Docker API version that Docker Engine 29 (what the prereqs
   script installs) rejects, and Traefik then answers 404 on every port.
-- Plain `http://` on a tool port is answered with 404 by Traefik; only `https://` is routed.
 - Backup: `certs/` and `usersfile`. Everything else is regenerated.
 
 ## Security notes
 
-- Traefik publishes every tool port on the host. Firewall them to the developer network;
-  nothing here should be reachable from the internet.
+- Traefik publishes 80, 443 and the dedicated TLS ports on the host. Firewall them to the
+  developer network; nothing here should be reachable from the internet.
 - The Docker socket is mounted read-only. Traefik still sees every container's labels and
   environment; treat the Traefik host as part of the platform's trust boundary.
 - Prometheus is published behind the same basic auth middleware as the dashboard because it has

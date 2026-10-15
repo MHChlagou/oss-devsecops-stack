@@ -58,9 +58,13 @@ services:
       - devsecops
     labels:
       - traefik.enable=true
-      - traefik.http.routers.gitea.rule=PathPrefix(`/`)
-      - traefik.http.routers.gitea.entrypoints=gitea
+      # Gitea serves its routes at the root and prefixes the links it generates with ROOT_URL,
+      # so the proxy strips the sub-path (the layout its reverse-proxy docs describe).
+      - traefik.http.routers.gitea.rule=PathPrefix(`${GITEA_URL_PATH}`)
+      - traefik.http.routers.gitea.entrypoints=websecure
       - traefik.http.routers.gitea.tls=true
+      - traefik.http.routers.gitea.middlewares=gitea-strip
+      - traefik.http.middlewares.gitea-strip.stripprefix.prefixes=${GITEA_URL_PATH}
       - traefik.http.services.gitea.loadbalancer.server.port=3000
 
 networks:
