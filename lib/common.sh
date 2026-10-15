@@ -152,16 +152,30 @@ image_for() {
 
 # wait_for_service <name> <host-port> [path] [timeout]. Polls the published port on
 # localhost: Traefik's TLS entry point for that tool, or the container's own port in ports mode.
+# Connection errors are expected while the tool starts (first start includes database setup),
+# so they are not printed. A container stuck restarting, or the timeout, ends the wait with the
+# stack's logs and a non-zero status so install.sh reports the component as failed.
 wait_for_service() {
-  local name="$1" port="$2" path="${3:-/}" timeout="${4:-300}" elapsed=0 url
+  local name="$1" port="$2" path="${3:-/}" timeout="${4:-300}" elapsed=0 url restarting
   local scheme=https
   [[ "$INGRESS" == ports ]] && scheme=http
   url="${scheme}://127.0.0.1:${port}${path}"
-  log "waiting for $name at $url"
-  until curl -ksS -o /dev/null -w '%{http_code}' --max-time 5 "$url" | grep -qE '^[1-4][0-9]{2}$'; do
+  log "waiting for $name at $url (up to ${timeout}s)"
+  until curl -ks -o /dev/null -w '%{http_code}' --max-time 5 "$url" 2>/dev/null | grep -qE '^[1-4][0-9]{2}$'; do
     sleep 5
     elapsed=$((elapsed + 5))
-    [[ $elapsed -lt $timeout ]] || { warn "$name not answering after ${timeout}s, check: docker compose -p $name logs"; return 0; }
+    restarting="$(docker ps --filter "label=com.docker.compose.project=$name" --filter status=restarting --format '{{.Names}}' | tr '\n' ' ')"
+    if [[ -n "$restarting" ]]; then
+      warn "$name: container keeps restarting: ${restarting}last log lines follow"
+      docker compose --project-name "$name" logs --tail 40 >&2 || true
+      return 1
+    fi
+    if [[ $elapsed -ge $timeout ]]; then
+      warn "$name not answering after ${timeout}s, last log lines follow"
+      docker compose --project-name "$name" logs --tail 40 >&2 || true
+      return 1
+    fi
+    (( elapsed % 30 )) || log "still waiting for $name (${elapsed}s)"
   done
   log "$name is up"
 }
