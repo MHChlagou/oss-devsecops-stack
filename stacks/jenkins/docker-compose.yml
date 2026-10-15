@@ -36,7 +36,7 @@ services:
       DOCKER_HOST: tcp://docker-socket-proxy:2375
       CASC_JENKINS_CONFIG: /usr/share/jenkins/casc/jenkins.yaml
       JAVA_OPTS: -Djenkins.install.runSetupWizard=false -Duser.timezone=${TZ} -Xms512m -Xmx2g
-      JENKINS_URL: https://jenkins.${DOMAIN}/
+      JENKINS_URL: ${JENKINS_URL}/
       JENKINS_ADMIN_USER: ${JENKINS_ADMIN_USER}
       JENKINS_ADMIN_PASSWORD: ${JENKINS_ADMIN_PASSWORD}
       JENKINS_MAX_AGENTS: ${JENKINS_MAX_AGENTS:-5}

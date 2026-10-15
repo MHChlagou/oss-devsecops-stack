@@ -5,6 +5,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
 require_root
 load_env
+require_traefik_ingress
 ensure_network
 ensure_dir "$DATA_ROOT/defectdojo/db"
 ensure_dir "$DATA_ROOT/defectdojo/media" 1001:1001

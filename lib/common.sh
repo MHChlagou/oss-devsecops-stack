@@ -33,6 +33,41 @@ load_env() {
   : "${DOMAIN:?DOMAIN must be set in .env}"
   : "${DATA_ROOT:?DATA_ROOT must be set in .env}"
   : "${DOCKER_NETWORK:?DOCKER_NETWORK must be set in .env}"
+  derive_urls
+}
+
+# Public URLs per ingress mode. Explicit *_URL values in .env win (external proxy case).
+derive_urls() {
+  INGRESS="${INGRESS:-traefik}"
+  case "$INGRESS" in
+    traefik)
+      : "${GITEA_URL:=https://gitea.${DOMAIN}}"
+      : "${JENKINS_URL:=https://jenkins.${DOMAIN}}"
+      : "${SONARQUBE_URL:=https://sonarqube.${DOMAIN}}"
+      : "${NEXUS_URL:=https://nexus.${DOMAIN}}"
+      : "${REGISTRY_HOST:=registry.${DOMAIN}}"
+      : "${GITEA_WEBHOOK_ALLOWED_HOSTS:=*.${DOMAIN}}"
+      ;;
+    ports)
+      : "${HOST_ADDRESS:=$(hostname -I 2>/dev/null | awk '{print $1}')}"
+      [[ -n "$HOST_ADDRESS" ]] || die "HOST_ADDRESS must be set in .env for INGRESS=ports"
+      : "${GITEA_URL:=http://${HOST_ADDRESS}:${GITEA_HTTP_PORT:-3000}}"
+      : "${JENKINS_URL:=http://${HOST_ADDRESS}:${JENKINS_HTTP_PORT:-8080}}"
+      : "${SONARQUBE_URL:=http://${HOST_ADDRESS}:${SONARQUBE_HTTP_PORT:-9000}}"
+      : "${NEXUS_URL:=http://${HOST_ADDRESS}:${NEXUS_HTTP_PORT:-8081}}"
+      : "${REGISTRY_HOST:=${HOST_ADDRESS}:${REGISTRY_PORT:-5000}}"
+      : "${GITEA_WEBHOOK_ALLOWED_HOSTS:=${HOST_ADDRESS}}"
+      ;;
+    *) die "INGRESS must be traefik or ports, got '$INGRESS'" ;;
+  esac
+  GITEA_HOST="${GITEA_URL#*://}"; GITEA_HOST="${GITEA_HOST%%/*}"; GITEA_HOST="${GITEA_HOST%%:*}"
+  export INGRESS HOST_ADDRESS GITEA_URL JENKINS_URL SONARQUBE_URL NEXUS_URL REGISTRY_HOST \
+         GITEA_WEBHOOK_ALLOWED_HOSTS GITEA_HOST
+}
+
+# Components that only work behind Traefik call this first.
+require_traefik_ingress() {
+  [[ "$INGRESS" == traefik ]] || die "this component needs INGRESS=traefik; only gitea, jenkins, sonarqube and nexus support ports mode"
 }
 
 random_secret() {
@@ -60,9 +95,13 @@ compose_up() {
   local stack="$1"; shift || true
   local file="$STACKS_DIR/$stack/docker-compose.yml"
   [[ -f "$file" ]] || die "no compose file for stack $stack"
-  log "starting stack $stack"
+  local files=(-f "$file")
+  if [[ "$INGRESS" == ports && -f "$STACKS_DIR/$stack/docker-compose.ports.yml" ]]; then
+    files+=(-f "$STACKS_DIR/$stack/docker-compose.ports.yml")
+  fi
+  log "starting stack $stack (ingress: $INGRESS)"
   docker compose --project-name "$stack" --env-file "$ENV_FILE" --env-file "$VERSIONS_FILE" \
-    -f "$file" up -d --remove-orphans "$@"
+    "${files[@]}" up -d --remove-orphans "$@"
 }
 
 compose_down() {
@@ -89,16 +128,24 @@ image_for() {
   printf '%s' "${!var:?$var not set in versions.env}"
 }
 
-# wait_for_service <subdomain> [path] [timeout]. Goes through Traefik on localhost so it
-# works before the wildcard DNS record exists.
+# wait_for_service <name> [path] [timeout] [host-port]. Behind Traefik it goes through
+# localhost:443 with --resolve so it works before the wildcard DNS record exists; in ports
+# mode it hits the published host port directly.
 wait_for_service() {
-  local name="$1" path="${2:-/}" timeout="${3:-300}" elapsed=0 host="$1.${DOMAIN}"
-  log "waiting for https://$host$path"
-  until curl -ksS -o /dev/null -w '%{http_code}' --max-time 5 \
-        --resolve "$host:443:127.0.0.1" "https://$host$path" | grep -qE '^[1-4][0-9]{2}$'; do
+  local name="$1" path="${2:-/}" timeout="${3:-300}" port="${4:-}" elapsed=0 url
+  local curl_opts=(-ksS -o /dev/null -w '%{http_code}' --max-time 5)
+  if [[ "$INGRESS" == ports ]]; then
+    [[ -n "$port" ]] || die "wait_for_service $name: host port required in ports mode"
+    url="http://127.0.0.1:${port}${path}"
+  else
+    url="https://${name}.${DOMAIN}${path}"
+    curl_opts+=(--resolve "${name}.${DOMAIN}:443:127.0.0.1")
+  fi
+  log "waiting for $url"
+  until curl "${curl_opts[@]}" "$url" | grep -qE '^[1-4][0-9]{2}$'; do
     sleep 5
     elapsed=$((elapsed + 5))
-    [[ $elapsed -lt $timeout ]] || { warn "$host not answering after ${timeout}s, check: docker compose -p $name logs"; return 0; }
+    [[ $elapsed -lt $timeout ]] || { warn "$url not answering after ${timeout}s, check: docker compose -p $name logs"; return 0; }
   done
-  log "https://$host is up"
+  log "$url is up"
 }

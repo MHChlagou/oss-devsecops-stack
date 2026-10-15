@@ -1,0 +1,5 @@
+# Applied by compose_up when INGRESS=ports: publishes the service on host ports instead of Traefik.
+services:
+  sonarqube:
+    ports:
+      - "${SONARQUBE_HTTP_PORT}:9000"

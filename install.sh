@@ -5,6 +5,7 @@
 #   sudo ./install.sh --list           show components in run order
 #   sudo ./install.sh --only gitea,jenkins
 #   sudo ./install.sh --skip gitea
+#   sudo ./install.sh --only gitea,jenkins,sonarqube,nexus   strict minimum, with INGRESS=ports in .env
 #   sudo ./install.sh --uninstall sonarqube   stop one stack (data is kept)
 
 set -euo pipefail

@@ -1,5 +1,7 @@
 # Documentation
 
+- [Strict minimum](strict-minimum.md): Gitea, Jenkins, SonarQube and Nexus on host ports with no
+  reverse proxy, for a pilot or behind the client's existing proxy.
 - [Minimal setup](minimal-setup.md): Jenkins, Gitea, Nexus and SonarQube only, with its
   resource budget, minimum hosts and monthly cost on AWS, Azure, Google Cloud and a dedicated provider.
 - [Sizing for five parallel builds](sizing.md): per-build and per-service budgets, minimum and

@@ -96,7 +96,8 @@ per-service budgets and the two-host layout are in [docs/sizing.md](docs/sizing.
 - Ports 80, 443 and the Gitea SSH port free.
 - A smaller host can run a subset with `--only`; the prerequisites script warns when the
   host is below the budget for the selected components and agent count. The four-tool core
-  (Jenkins, Gitea, Nexus, SonarQube) with its hosts and prices is in [docs/minimal-setup.md](docs/minimal-setup.md).
+  (Jenkins, Gitea, Nexus, SonarQube) with its hosts and prices is in [docs/minimal-setup.md](docs/minimal-setup.md),
+  and the same four without Traefik, on host ports, in [docs/strict-minimum.md](docs/strict-minimum.md).
 
 ## Install
 
@@ -110,6 +111,10 @@ sudo ./install.sh --only traefik,gitea,jenkins
 sudo ./install.sh --skip observability
 sudo ./install.sh --uninstall sonarqube   # stops the stack, keeps its data
 ```
+
+Ingress: `INGRESS=traefik` (default) puts every tool behind one TLS entry point at
+`https://<name>.<domain>`. `INGRESS=ports` publishes Gitea, Jenkins, SonarQube and Nexus on
+host ports with no proxy, for the strict minimum profile or behind a proxy the client already runs.
 
 The installer keeps going when a component fails and prints the list to rerun at the end.
 Rerunning a component is safe: compose only recreates what changed.

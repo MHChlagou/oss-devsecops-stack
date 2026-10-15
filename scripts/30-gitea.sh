@@ -10,7 +10,7 @@ ensure_network
 ensure_dir "$DATA_ROOT/gitea/db"
 ensure_dir "$DATA_ROOT/gitea/data" 1000:1000
 compose_up gitea
-wait_for_service gitea /api/healthz 300
+wait_for_service gitea /api/healthz 300 "${GITEA_HTTP_PORT:-3000}"
 
 # First admin account. INSTALL_LOCK=true skips the web installer, so the account is created here.
 # Idempotent: skipped when the user already exists.
@@ -23,6 +23,6 @@ else
     sh -c 'gitea admin user create --admin --username gitea_admin --email "devsecops@'"$DOMAIN"'" --password "$GITEA_ADMIN_PASSWORD" --must-change-password' >/dev/null
 fi
 
-log "Gitea: https://gitea.${DOMAIN}"
-log "git over SSH: ssh://git@gitea.${DOMAIN}:${GITEA_SSH_PORT}/<org>/<repo>.git"
-log "next: create an organisation, enable the Jenkins Gitea plugin server entry and point webhooks at https://jenkins.${DOMAIN}/gitea-webhook/post"
+log "Gitea: ${GITEA_URL}"
+log "git over SSH: ssh://git@${GITEA_HOST}:${GITEA_SSH_PORT}/<org>/<repo>.git"
+log "next: create an organisation, enable the Jenkins Gitea plugin server entry and point webhooks at ${JENKINS_URL}/gitea-webhook/post"

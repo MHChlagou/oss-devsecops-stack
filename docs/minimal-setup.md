@@ -3,7 +3,8 @@
 The strict minimum that still deserves the name DevSecOps: source control, a pipeline, a
 quality gate, an artifact store, and the scanners baked into the Jenkins agent image.
 Traefik stays because something has to terminate TLS and route hostnames. Everything else
-in the full stack can be added later with `--only`, one component at a time.
+in the full stack can be added later with `--only`, one component at a time. The same four
+tools without Traefik, on host ports, are the [strict minimum](strict-minimum.md).
 
 ## The chain
 

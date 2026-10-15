@@ -1,0 +1,5 @@
+# Applied by compose_up when INGRESS=ports: publishes the service on host ports instead of Traefik.
+services:
+  gitea:
+    ports:
+      - "${GITEA_HTTP_PORT}:3000"

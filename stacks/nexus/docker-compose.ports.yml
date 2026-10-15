@@ -1,0 +1,6 @@
+# Applied by compose_up when INGRESS=ports: publishes the service on host ports instead of Traefik.
+services:
+  nexus:
+    ports:
+      - "${NEXUS_HTTP_PORT}:8081"
+      - "${REGISTRY_PORT}:5000"
