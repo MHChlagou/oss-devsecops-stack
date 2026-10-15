@@ -59,6 +59,68 @@ Every arrow into DefectDojo is a report upload in the `post` block of `templates
 The quality gate is the only hard stop by default; Trivy stages also fail the build on HIGH and
 CRITICAL findings, which the team can relax per project while the backlog is being cleaned.
 
+## What each tool does
+
+The chain has three layers: the tools developers interact with, the scanners that run inside
+every build, and the platform services that hold the rest together. Each name links to its
+page under `docs/`.
+
+### Development and delivery
+
+- [Gitea](docs/tools/gitea.md) hosts the Git repositories, pull requests and code review. It
+  is where branch protection lives: a change reaches `main` only with an approved review and a
+  green Jenkins status, which is what turns the scans below from advice into a gate.
+- [Jenkins](docs/tools/jenkins.md) runs the pipeline. The controller only schedules; every build
+  runs in a throwaway container started from an agent image that already contains the scanners.
+  Its configuration is a file in this repository, not clicks in a UI.
+- [SonarQube Community Build](docs/tools/sonarqube.md) measures code quality for PHP and
+  TypeScript (bugs, code smells, duplication, coverage, security hotspots) and evaluates the
+  quality gate that fails the build. Its free edition has no taint analysis, which is why Semgrep
+  runs next to it.
+- [Nexus Repository CE](docs/tools/nexus.md) caches npm, Composer and Docker Hub so builds are
+  fast and reproducible even when upstream is down, and hosts the images the pipeline produces.
+  Deployments pull only from here, so nothing reaches staging without having passed through a build.
+
+### Scanners, in pipeline order
+
+- [Gitleaks](docs/scanners/gitleaks.md) looks for passwords, keys and tokens, first in the
+  developer's pre-commit hook and again on the full checkout. A leak fails the build.
+- [Semgrep](docs/scanners/semgrep.md) finds code-level security bugs with rule packs for PHP and
+  TypeScript, including user input flowing into a query, a shell call or an HTML output.
+- [Trivy](docs/scanners/trivy.md) checks the dependency lock files and, later, the built image
+  for known vulnerabilities, misconfigurations and secrets. HIGH and CRITICAL findings fail the build.
+- [Syft](docs/scanners/syft.md) writes the software bill of materials, the list of every package
+  in the build, so the question "are we affected by this new CVE" can be answered without rebuilding.
+- [hadolint](docs/scanners/hadolint.md) lints the Dockerfile before the image is built: unpinned
+  base images, root at runtime, leftover package caches.
+- [Checkov](docs/scanners/checkov.md) and [KICS](docs/scanners/kics.md) scan infrastructure
+  definitions (Compose files, Kubernetes manifests, Terraform) for insecure settings. One of the
+  two is enough per client.
+- [OWASP ZAP](docs/scanners/zap.md) attacks the application once it is deployed to staging and
+  reports what an outsider sees: missing headers, injection points, weak session handling.
+
+### Platform services
+
+- [Traefik](docs/tools/traefik.md) is the single entry point. It terminates TLS, gives every
+  tool a hostname, and discovers new services from their Docker labels.
+- [Keycloak](docs/tools/keycloak.md) provides one login for every tool through OpenID Connect,
+  with groups that map to roles, and can federate the client's existing directory.
+- [Vault](docs/tools/vault.md) stores the secrets pipelines need (registry passwords, API tokens,
+  deployment keys), hands them out for a short time with an audit trail, and is the one place to
+  rotate them.
+- [DefectDojo](docs/tools/defectdojo.md) receives every scanner's report, deduplicates the
+  findings, assigns owners and SLAs, and gives the security lead one list instead of seven formats
+  scattered across build artifacts.
+- [Dependency-Track](docs/tools/dependency-track.md) keeps every build's bill of materials and
+  re-checks all of them whenever a new vulnerability is published, so a library disclosed today is
+  flagged in last year's release tomorrow morning.
+- [Prometheus, Grafana and Loki](docs/tools/observability.md) watch the platform itself: disk,
+  memory, container restarts, Jenkins queue length, and the logs of every service in one place.
+
+Which of these a client needs on day one is a sizing and budget question: the
+[minimal setup](docs/minimal-setup.md) and the [strict minimum](docs/strict-minimum.md) pages
+describe the four-tool core and what each missing service costs you in practice.
+
 ## Components and run order
 
 | Order | Component | Script | URL |
