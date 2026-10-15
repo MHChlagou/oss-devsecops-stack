@@ -71,6 +71,13 @@ Then:
 sudo ./install.sh --only gitea,jenkins,sonarqube,nexus
 ```
 
+Or, without touching `.env`, give the settings on the first run; they are written into the
+file it creates:
+
+```bash
+sudo INGRESS=ports HOST_ADDRESS=10.0.0.20 JENKINS_MAX_AGENTS=3 ./install.sh --only gitea,jenkins,sonarqube,nexus
+```
+
 With `INGRESS=ports` the installer publishes Gitea on 3000, Jenkins on 8080, SonarQube on
 9000, Nexus on 8081 and its Docker registry on 5000 (all adjustable in `.env`), derives each
 tool's public URL from `HOST_ADDRESS`, and refuses to install the Traefik-only components.

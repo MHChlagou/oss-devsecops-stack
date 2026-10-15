@@ -38,10 +38,30 @@ SYSCTL
   sysctl -q --system >/dev/null
 }
 
+# Variables exported before the first run (sudo HOST_ADDRESS=10.0.0.20 DATA_ROOT=/data ./install.sh)
+# are written into the new .env, so the file never needs editing by hand. Only keys that exist in
+# .env.example are taken, and only when .env is created: afterwards .env is the source of truth.
+seed_env_from_environment() {
+  local key value
+  mapfile -t keys < <(grep -oE '^[A-Z_]+=' "$ENV_FILE" | tr -d '=')
+  for key in "${keys[@]}"; do
+    value="${!key:-}"
+    [[ -n "$value" ]] || continue
+    # .env is sourced by bash and read by compose: quote anything beyond plain characters.
+    [[ "$value" != *\'* && "$value" != *$'\n'* ]] || die "$key: value must not contain a single quote or a newline"
+    [[ "$value" =~ ^[A-Za-z0-9_./:@-]+$ ]] || value="'${value}'"
+    value="${value//\\/\\\\}"; value="${value//&/\\&}"; value="${value//|/\\|}"
+    sed -i "s|^${key}=.*$|${key}=${value}|" "$ENV_FILE"
+    log "set $key from the environment"
+  done
+}
+
 create_env() {
   if [[ ! -f "$ENV_FILE" ]]; then
     cp "$ROOT_DIR/.env.example" "$ENV_FILE"
-    log "created .env from .env.example, edit HOST_ADDRESS and DATA_ROOT if needed"
+    chmod 600 "$ENV_FILE"
+    seed_env_from_environment
+    log "created .env from .env.example; HOST_ADDRESS and DATA_ROOT can be changed there"
   fi
   chmod 600 "$ENV_FILE"
   # Collect the empty secret keys first, then edit: never read and rewrite .env in one pass.

@@ -2,6 +2,7 @@
 # DevSecOps platform installer. Runs every scripts/NN-<component>.sh in order.
 #
 #   sudo ./install.sh                  install everything
+#   sudo HOST_ADDRESS=10.0.0.20 DATA_ROOT=/data ./install.sh   same, settings given on the command line
 #   sudo ./install.sh --list           show components in run order
 #   sudo ./install.sh --only gitea,jenkins
 #   sudo ./install.sh --skip gitea
@@ -13,7 +14,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 # shellcheck source=lib/common.sh
 source lib/common.sh
 
-usage() { sed -n '2,9p' "$0"; exit "${1:-0}"; }
+usage() { sed -n '2,10p' "$0"; exit "${1:-0}"; }
 
 component_of() { local f; f="$(basename "$1" .sh)"; printf '%s' "${f#*-}"; }
 

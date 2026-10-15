@@ -165,14 +165,18 @@ per-service budgets and the two-host layout are in [docs/sizing.md](docs/sizing.
 
 ```bash
 git clone https://github.com/MHChlagou/oss-devsecops-stack.git && cd oss-devsecops-stack
-cp .env.example .env          # optional: prereqs does it if missing
-vi .env                       # set HOST_ADDRESS (server name or IP), DATA_ROOT; leave passwords empty
-sudo ./install.sh             # everything, in order
+sudo HOST_ADDRESS=10.0.0.20 DATA_ROOT=/srv/devsecops ./install.sh   # everything, in order
 sudo ./install.sh --list      # component names
 sudo ./install.sh --only traefik,gitea,jenkins
 sudo ./install.sh --skip observability
 sudo ./install.sh --uninstall sonarqube   # stops the stack, keeps its data
 ```
+
+The first run creates `.env` from `.env.example`, takes every setting given on the command
+line (`HOST_ADDRESS`, `DATA_ROOT`, `INGRESS`, `JENKINS_MAX_AGENTS`, any key of the file) and
+generates the passwords. The variables go after `sudo`, not in an `export`, because `sudo`
+resets the environment. `HOST_ADDRESS` can be the server name or its IP; left out, the first
+host IP is used. Later runs read `.env`, so edit that file to change a setting.
 
 Ingress: `INGRESS=traefik` (default) puts Traefik in front of every tool, with TLS, at
 `https://<host>:<port>`. `INGRESS=ports` publishes Gitea, Jenkins, SonarQube and Nexus on the
