@@ -52,6 +52,9 @@ their own ports at the root path over plain HTTP, and every prefix setting above
 
 ## TLS
 
+The full certificate page, including trust on browsers, Git and Docker clients, is
+[tls.md](../tls.md). The essentials:
+
 Generated certificate (default): on first run the script creates a self-signed certificate
 for `HOST_ADDRESS`, with an IP or DNS subject alternative name as appropriate, valid ten years,
 and keeps it on later runs. It also copies the certificate to

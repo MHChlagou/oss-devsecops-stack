@@ -1,5 +1,9 @@
 # Documentation
 
+- [Final setup](final-setup/README.md): what is installed for the client, how, which ports
+  are exposed, what is deferred and why ([decisions](final-setup/decisions.md)).
+- [TLS certificates](tls.md): how the certificate is generated, its lifetime, trusting it on
+  browsers, Git and Docker, regenerating it, replacing it with the client's own.
 - [Strict minimum](strict-minimum.md): Gitea, Jenkins, SonarQube and Nexus on host ports with no
   reverse proxy, for a pilot or behind the client's existing proxy.
 - [Minimal setup](minimal-setup.md): Jenkins, Gitea, Nexus and SonarQube only, with its
@@ -11,7 +15,7 @@
 
 | Page | What it covers |
 |---|---|
-| [Traefik](tools/traefik.md) | one TLS port per tool, generated or client certificate, adding a service |
+| [Traefik](tools/traefik.md) | path routing on one TLS port, dedicated ports, adding a service |
 | [Keycloak](tools/keycloak.md) | realm and group design, one OIDC client per tool with redirect URIs |
 | [Vault](tools/vault.md) | init and unseal procedure, AppRole for Jenkins, backup caveats |
 | [Gitea](tools/gitea.md) | hardening settings, branch protection, Jenkins integration, dump and restore |

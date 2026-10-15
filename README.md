@@ -196,7 +196,7 @@ TLS: the Traefik script generates a self-signed certificate for `HOST_ADDRESS` o
 trusts it for the host's Docker daemon so image pushes to the registry work. Import
 `${DATA_ROOT}/traefik/certs/server.crt` on developer machines, or drop a certificate from the
 client's CA in that directory as `server.crt` and `server.key` and rerun the Traefik component
-(details in [docs/tools/traefik.md](docs/tools/traefik.md)).
+(lifetime, trust on each kind of client and replacement in [docs/tls.md](docs/tls.md)).
 
 ## Post-install checklist
 
@@ -221,7 +221,9 @@ client's CA in that directory as `server.crt` and `server.key` and rerun the Tra
 
 One page per tool under [docs/](docs/README.md): role in the chain, deployment facts,
 first-run steps, integrations, operations and free edition limits. Hardware sizing for
-five parallel builds is in [docs/sizing.md](docs/sizing.md).
+five parallel builds is in [docs/sizing.md](docs/sizing.md). What is actually installed for
+the client, and the decisions behind it, is in [docs/final-setup/](docs/final-setup/README.md).
+Certificates are covered in [docs/tls.md](docs/tls.md).
 
 ## Security notes
 
