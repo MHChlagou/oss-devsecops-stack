@@ -170,6 +170,8 @@ sudo ./install.sh --list      # component names
 sudo ./install.sh --only traefik,gitea,jenkins
 sudo ./install.sh --skip observability
 sudo ./install.sh --uninstall sonarqube   # stops the stack, keeps its data
+sudo ./install.sh --uninstall all         # stops every stack, keeps all data
+sudo ./install.sh --purge                 # stops everything and deletes DATA_ROOT, asks for confirmation
 ```
 
 The first run creates `.env` from `.env.example`, takes every setting given on the command

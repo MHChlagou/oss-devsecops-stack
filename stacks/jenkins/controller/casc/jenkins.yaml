@@ -13,9 +13,7 @@ jenkins:
       allowAnonymousRead: false
   remotingSecurity:
     enabled: true
-  crumbIssuer:
-    standard:
-      excludeClientIPFromCrumb: true
+  crumbIssuer: standard
   clouds:
     - docker:
         name: "local-docker"

@@ -8,13 +8,15 @@
 #   sudo ./install.sh --skip gitea
 #   sudo ./install.sh --only gitea,jenkins,sonarqube,nexus   strict minimum, with INGRESS=ports in .env
 #   sudo ./install.sh --uninstall sonarqube   stop one stack (data is kept)
+#   sudo ./install.sh --uninstall all         stop every stack (data is kept)
+#   sudo ./install.sh --purge [--yes]         stop every stack and delete its data, network, images and wrappers
 
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 # shellcheck source=lib/common.sh
 source lib/common.sh
 
-usage() { sed -n '2,10p' "$0"; exit "${1:-0}"; }
+usage() { sed -n '2,12p' "$0"; exit "${1:-0}"; }
 
 component_of() { local f; f="$(basename "$1" .sh)"; printf '%s' "${f#*-}"; }
 
@@ -24,13 +26,15 @@ list_components() {
 
 in_list() { local needle="$1" list=",$2,"; [[ "$list" == *",$needle,"* ]]; }
 
-ONLY="" SKIP="" UNINSTALL=""
+ONLY="" SKIP="" UNINSTALL="" PURGE=0 YES=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --list) list_components; exit 0 ;;
     --only) ONLY="$2"; shift 2 ;;
     --skip) SKIP="$2"; shift 2 ;;
     --uninstall) UNINSTALL="$2"; shift 2 ;;
+    --purge) PURGE=1; shift ;;
+    --yes) YES=1; shift ;;
     -h|--help) usage 0 ;;
     *) warn "unknown argument $1"; usage 1 ;;
   esac
@@ -42,7 +46,25 @@ require_cmd openssl
 
 if [[ -n "$UNINSTALL" ]]; then
   load_env
-  compose_down "$UNINSTALL"
+  if [[ "$UNINSTALL" == all ]]; then
+    for stack in $(stacks_in_reverse_order); do compose_down "$stack"; done
+  else
+    compose_down "$UNINSTALL"
+  fi
+  exit 0
+fi
+
+if [[ "$PURGE" == 1 ]]; then
+  load_env
+  warn "this stops every stack and deletes ${DATA_ROOT} (repositories, databases, artifacts, certificates),"
+  warn "the ${DOCKER_NETWORK} network, the built Jenkins images and the scanner wrappers. .env is kept."
+  if [[ "$YES" != 1 ]]; then
+    [[ -t 0 ]] || die "not a terminal: pass --yes to purge without the prompt"
+    read -r -p "type 'delete everything' to continue: " answer
+    [[ "$answer" == "delete everything" ]] || die "aborted, nothing was changed"
+  fi
+  for stack in $(stacks_in_reverse_order); do compose_down "$stack"; done
+  purge_host_state
   exit 0
 fi
 
