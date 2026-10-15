@@ -150,6 +150,18 @@ image_for() {
   printf '%s' "${!var:?$var not set in versions.env}"
 }
 
+# crash_looping <compose-project>: prints the containers of the project that are in the
+# restarting state or have already been restarted twice. A fast loop shows as "Up 3 seconds"
+# most of the time, so the status alone is not enough.
+crash_looping() {
+  local ids
+  ids="$(docker ps -aq --filter "label=com.docker.compose.project=$1")"
+  [[ -n "$ids" ]] || return 0
+  # shellcheck disable=SC2086
+  docker inspect -f '{{.Name}} {{.State.Status}} {{.RestartCount}}' $ids \
+    | awk '$2 == "restarting" || $3 >= 2 { sub("^/", "", $1); printf "%s ", $1 }'
+}
+
 # wait_for_service <name> <host-port> [path] [timeout]. Polls the published port on
 # localhost: Traefik's TLS entry point for that tool, or the container's own port in ports mode.
 # Connection errors are expected while the tool starts (first start includes database setup),
@@ -164,7 +176,7 @@ wait_for_service() {
   until curl -ks -o /dev/null -w '%{http_code}' --max-time 5 "$url" 2>/dev/null | grep -qE '^[1-4][0-9]{2}$'; do
     sleep 5
     elapsed=$((elapsed + 5))
-    restarting="$(docker ps --filter "label=com.docker.compose.project=$name" --filter status=restarting --format '{{.Names}}' | tr '\n' ' ')"
+    restarting="$(crash_looping "$name")"
     if [[ -n "$restarting" ]]; then
       warn "$name: container keeps restarting: ${restarting}last log lines follow"
       docker compose --project-name "$name" logs --tail 40 >&2 || true
