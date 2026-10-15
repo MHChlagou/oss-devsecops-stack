@@ -97,6 +97,13 @@ Traefik mode) or edit the port variable, then rerun Traefik and the tool concern
 
 ## Security notes
 
+- One origin for every tool. Path routing puts Gitea, Jenkins, SonarQube and Nexus on the same
+  browser origin (`https://<host>`), so the browser's same-origin isolation no longer separates
+  them as distinct ports did: a script injection in one tool could act on another tool's
+  session. Each tool scopes its session cookie to its own path, which prevents accidental
+  leakage but is not a security boundary. Accept this for a team platform with trusted users,
+  keep the tools patched, and if the client wants strict isolation later, hostname routing on
+  an internal DNS zone restores separate origins at the cost of a DNS dependency.
 - Traefik publishes 80, 443 and the dedicated TLS ports on the host. Firewall them to the
   developer network; nothing here should be reachable from the internet.
 - The Docker socket is mounted read-only. Traefik still sees every container's labels and
