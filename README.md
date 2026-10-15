@@ -152,7 +152,8 @@ per-service budgets and the two-host layout are in [docs/sizing.md](docs/sizing.
 | Recommended, single host | 24 | 64 GB | 1 TB NVMe |
 | Recommended, two hosts | 8 platform + 12 build | 32 GB + 32 GB | 500 GB + 300 GB |
 
-- Debian 12/13 or Ubuntu 22.04/24.04, root access, outbound internet for image pulls and
+- Debian 12/13 or Ubuntu 22.04/24.04, root access, Docker Engine 29 (installed by the prereqs
+  script if missing), outbound internet for image pulls and
   vulnerability feeds.
 - No DNS record. Tools are reached at the host's name or IP (`HOST_ADDRESS` in `.env`), one
   port per tool as listed above; those ports and the Gitea SSH port must be free.

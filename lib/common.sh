@@ -213,18 +213,21 @@ crash_looping() {
     | awk '$2 == "restarting" || $3 >= 2 { sub("^/", "", $1); printf "%s ", $1 }'
 }
 
-# wait_for_service <name> <host-port> [path] [timeout]. Polls the published port on
-# localhost: Traefik's TLS entry point for that tool, or the container's own port in ports mode.
-# Connection errors are expected while the tool starts (first start includes database setup),
-# so they are not printed. A container stuck restarting, or the timeout, ends the wait with the
-# stack's logs and a non-zero status so install.sh reports the component as failed.
+# wait_for_service <name> <host-port> [path] [timeout] [extra-codes]. Polls the published port
+# on localhost: Traefik's TLS entry point for that tool, or the container's own port in ports
+# mode. Up means 2xx, 3xx, 401 or 403, plus any extra regex given (Vault answers 501/503
+# while sealed). 404 is not up: behind Traefik it is the proxy answering for a backend that
+# has not registered yet. Connection errors are expected while the tool starts and are not
+# printed. A container stuck restarting, or the timeout, ends the wait with the stack's logs
+# and a non-zero status so install.sh reports the component as failed.
 wait_for_service() {
-  local name="$1" port="$2" path="${3:-/}" timeout="${4:-300}" elapsed=0 url restarting
-  local scheme=https
+  local name="$1" port="$2" path="${3:-/}" timeout="${4:-300}" extra="${5:-}" elapsed=0 url restarting
+  local scheme=https up_codes='^([23][0-9]{2}|401|403)$'
+  [[ -n "$extra" ]] && up_codes="^([23][0-9]{2}|401|403|${extra})$"
   [[ "$INGRESS" == ports ]] && scheme=http
   url="${scheme}://127.0.0.1:${port}${path}"
   log "waiting for $name at $url (up to ${timeout}s)"
-  until curl -ks -o /dev/null -w '%{http_code}' --max-time 5 "$url" 2>/dev/null | grep -qE '^[1-4][0-9]{2}$'; do
+  until curl -ks -o /dev/null -w '%{http_code}' --max-time 5 "$url" 2>/dev/null | grep -qE "$up_codes"; do
     sleep 5
     elapsed=$((elapsed + 5))
     restarting="$(crash_looping "$name")"

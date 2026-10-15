@@ -79,7 +79,10 @@ Changing a port: edit the variable in `.env`, then rerun Traefik and the tool co
   give the container the labels `traefik.enable=true`, `rule=PathPrefix(`/`)`,
   `entrypoints=<name>`, `tls=true` and `loadbalancer.server.port`. Copy the block from any stack.
 - Upgrade: bump `TRAEFIK_IMAGE`, run `sudo ./install.sh --only traefik`. Static config is
-  regenerated on each run, so make lasting edits in `scripts/10-traefik.sh`.
+  regenerated on each run, so make lasting edits in `scripts/10-traefik.sh`. Never pin below
+  `v3.7`: older releases speak a Docker API version that Docker Engine 29 (what the prereqs
+  script installs) rejects, and Traefik then answers 404 on every port.
+- Plain `http://` on a tool port is answered with 404 by Traefik; only `https://` is routed.
 - Backup: `certs/` and `usersfile`. Everything else is regenerated.
 
 ## Security notes
