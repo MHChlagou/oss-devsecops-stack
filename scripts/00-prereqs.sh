@@ -41,7 +41,7 @@ SYSCTL
 create_env() {
   if [[ ! -f "$ENV_FILE" ]]; then
     cp "$ROOT_DIR/.env.example" "$ENV_FILE"
-    log "created .env from .env.example, edit DOMAIN and DATA_ROOT if needed"
+    log "created .env from .env.example, edit HOST_ADDRESS and DATA_ROOT if needed"
   fi
   chmod 600 "$ENV_FILE"
   # Collect the empty secret keys first, then edit: never read and rewrite .env in one pass.

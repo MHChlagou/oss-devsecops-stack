@@ -40,6 +40,7 @@ services:
       JENKINS_ADMIN_USER: ${JENKINS_ADMIN_USER}
       JENKINS_ADMIN_PASSWORD: ${JENKINS_ADMIN_PASSWORD}
       JENKINS_MAX_AGENTS: ${JENKINS_MAX_AGENTS:-5}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
       DOCKER_NETWORK: ${DOCKER_NETWORK}
     volumes:
       - ${DATA_ROOT}/jenkins/home:/var/jenkins_home
@@ -49,10 +50,9 @@ services:
       - devsecops
     labels:
       - traefik.enable=true
-      - traefik.http.routers.jenkins.rule=Host(`jenkins.${DOMAIN}`)
-      - traefik.http.routers.jenkins.entrypoints=websecure
+      - traefik.http.routers.jenkins.rule=PathPrefix(`/`)
+      - traefik.http.routers.jenkins.entrypoints=jenkins
       - traefik.http.routers.jenkins.tls=true
-      - traefik.http.routers.jenkins.tls.certresolver=${CERT_RESOLVER}
       - traefik.http.services.jenkins.loadbalancer.server.port=8080
 
 networks:

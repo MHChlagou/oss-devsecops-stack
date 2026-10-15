@@ -18,7 +18,7 @@ Both fail the build on HIGH and CRITICAL severities with `--exit-code 1`.
 ```bash
 trivy fs --scanners vuln,secret,misconfig .
 trivy fs --severity HIGH,CRITICAL --exit-code 1 --format json --output trivy-fs.json .
-trivy image registry.<DOMAIN>/app:42
+trivy image <host>:5000/app:42
 trivy image --ignore-unfixed --severity HIGH,CRITICAL --exit-code 1 app:42
 trivy config deploy/           # Kubernetes, Compose, Terraform, Dockerfile misconfigurations
 trivy sbom sbom.cdx.json       # scan an existing SBOM instead of the source

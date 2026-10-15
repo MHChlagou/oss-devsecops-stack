@@ -18,7 +18,7 @@ also read their configuration from it at startup.
 | Image | `VAULT_IMAGE` |
 | Config | `${DATA_ROOT}/vault/config/vault.hcl`, file storage backend, TLS terminated by Traefik |
 | Data | `${DATA_ROOT}/vault/file` |
-| URL | `https://vault.<DOMAIN>/ui/` |
+| URL | `https://<host>:8200/ui/` |
 | Budget | 0.2 vCPU, 256 MB |
 
 The container has `IPC_LOCK` so Vault can keep its memory out of swap. Single node, file
@@ -67,7 +67,7 @@ System, Vault. In a pipeline:
 
 ```groovy
 withVault(vaultSecrets: [[path: 'secret/ci/nexus', secretValues: [[envVar: 'REG_PASS', vaultKey: 'password']]]]) {
-  sh 'echo "$REG_PASS" | docker login registry.$DOMAIN -u ci --password-stdin'
+  sh 'echo "$REG_PASS" | docker login $REGISTRY -u ci --password-stdin'
 }
 ```
 

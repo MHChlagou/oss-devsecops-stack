@@ -32,7 +32,7 @@ ShellCheck findings inside `RUN` lines. Rule ids are `DL` (Dockerfile) and `SC` 
 ignored:
   - DL3008   # apt pin versions: we pin the base image digest instead
 trustedRegistries:
-  - registry.<DOMAIN>
+  - <host>:5000
 failure-threshold: warning
 ```
 

@@ -30,38 +30,60 @@ load_env() {
   # shellcheck disable=SC1090
   source "$VERSIONS_FILE"
   set +a
-  : "${DOMAIN:?DOMAIN must be set in .env}"
   : "${DATA_ROOT:?DATA_ROOT must be set in .env}"
   : "${DOCKER_NETWORK:?DOCKER_NETWORK must be set in .env}"
   derive_urls
 }
 
-# Public URLs per ingress mode. Explicit *_URL values in .env win (external proxy case).
+# Public URLs. Every tool is reached on HOST_ADDRESS (server name or IP, no DNS zone needed)
+# at its own port: https through Traefik, plain http in ports mode. Explicit *_URL values in
+# .env win (external proxy case).
 derive_urls() {
   INGRESS="${INGRESS:-traefik}"
+  local scheme
   case "$INGRESS" in
-    traefik)
-      : "${GITEA_URL:=https://gitea.${DOMAIN}}"
-      : "${JENKINS_URL:=https://jenkins.${DOMAIN}}"
-      : "${SONARQUBE_URL:=https://sonarqube.${DOMAIN}}"
-      : "${NEXUS_URL:=https://nexus.${DOMAIN}}"
-      : "${REGISTRY_HOST:=registry.${DOMAIN}}"
-      : "${GITEA_WEBHOOK_ALLOWED_HOSTS:=*.${DOMAIN}}"
-      ;;
-    ports)
-      : "${HOST_ADDRESS:=$(hostname -I 2>/dev/null | awk '{print $1}')}"
-      [[ -n "$HOST_ADDRESS" ]] || die "HOST_ADDRESS must be set in .env for INGRESS=ports"
-      : "${GITEA_URL:=http://${HOST_ADDRESS}:${GITEA_HTTP_PORT:-3000}}"
-      : "${JENKINS_URL:=http://${HOST_ADDRESS}:${JENKINS_HTTP_PORT:-8080}}"
-      : "${SONARQUBE_URL:=http://${HOST_ADDRESS}:${SONARQUBE_HTTP_PORT:-9000}}"
-      : "${NEXUS_URL:=http://${HOST_ADDRESS}:${NEXUS_HTTP_PORT:-8081}}"
-      : "${REGISTRY_HOST:=${HOST_ADDRESS}:${REGISTRY_PORT:-5000}}"
-      : "${GITEA_WEBHOOK_ALLOWED_HOSTS:=${HOST_ADDRESS}}"
-      ;;
+    traefik) scheme=https ;;
+    ports) scheme=http ;;
     *) die "INGRESS must be traefik or ports, got '$INGRESS'" ;;
   esac
+  : "${HOST_ADDRESS:=$(hostname -I 2>/dev/null | awk '{print $1}')}"
+  [[ -n "$HOST_ADDRESS" ]] || die "HOST_ADDRESS must be set in .env (server name or IP)"
+  : "${GITEA_HTTP_PORT:=3000}"
+  : "${JENKINS_HTTP_PORT:=8080}"
+  : "${SONARQUBE_HTTP_PORT:=9000}"
+  : "${NEXUS_HTTP_PORT:=8081}"
+  : "${REGISTRY_PORT:=5000}"
+  : "${KEYCLOAK_HTTP_PORT:=8180}"
+  : "${VAULT_HTTP_PORT:=8200}"
+  : "${DEFECTDOJO_HTTP_PORT:=8083}"
+  : "${DTRACK_HTTP_PORT:=8090}"
+  : "${DTRACK_API_PORT:=8091}"
+  : "${GRAFANA_HTTP_PORT:=3001}"
+  : "${PROMETHEUS_HTTP_PORT:=9090}"
+  : "${TRAEFIK_DASHBOARD_PORT:=443}"
+  : "${GITEA_URL:=${scheme}://${HOST_ADDRESS}:${GITEA_HTTP_PORT}}"
+  : "${JENKINS_URL:=${scheme}://${HOST_ADDRESS}:${JENKINS_HTTP_PORT}}"
+  : "${SONARQUBE_URL:=${scheme}://${HOST_ADDRESS}:${SONARQUBE_HTTP_PORT}}"
+  : "${NEXUS_URL:=${scheme}://${HOST_ADDRESS}:${NEXUS_HTTP_PORT}}"
+  : "${REGISTRY_HOST:=${HOST_ADDRESS}:${REGISTRY_PORT}}"
+  : "${KEYCLOAK_URL:=https://${HOST_ADDRESS}:${KEYCLOAK_HTTP_PORT}}"
+  : "${VAULT_URL:=https://${HOST_ADDRESS}:${VAULT_HTTP_PORT}}"
+  : "${DEFECTDOJO_URL:=https://${HOST_ADDRESS}:${DEFECTDOJO_HTTP_PORT}}"
+  : "${DTRACK_URL:=https://${HOST_ADDRESS}:${DTRACK_HTTP_PORT}}"
+  : "${DTRACK_API_URL:=https://${HOST_ADDRESS}:${DTRACK_API_PORT}}"
+  : "${GRAFANA_URL:=https://${HOST_ADDRESS}:${GRAFANA_HTTP_PORT}}"
+  : "${PROMETHEUS_URL:=https://${HOST_ADDRESS}:${PROMETHEUS_HTTP_PORT}}"
+  : "${TRAEFIK_URL:=https://${HOST_ADDRESS}:${TRAEFIK_DASHBOARD_PORT}}"
+  # Gitea matches webhook targets by host, not port, so this is the platform host and nothing else.
+  : "${GITEA_WEBHOOK_ALLOWED_HOSTS:=${HOST_ADDRESS}}"
+  : "${ADMIN_EMAIL:=devsecops@localhost}"
   GITEA_HOST="${GITEA_URL#*://}"; GITEA_HOST="${GITEA_HOST%%/*}"; GITEA_HOST="${GITEA_HOST%%:*}"
-  export INGRESS HOST_ADDRESS GITEA_URL JENKINS_URL SONARQUBE_URL NEXUS_URL REGISTRY_HOST \
+  export INGRESS HOST_ADDRESS ADMIN_EMAIL \
+         GITEA_HTTP_PORT JENKINS_HTTP_PORT SONARQUBE_HTTP_PORT NEXUS_HTTP_PORT REGISTRY_PORT \
+         KEYCLOAK_HTTP_PORT VAULT_HTTP_PORT DEFECTDOJO_HTTP_PORT DTRACK_HTTP_PORT DTRACK_API_PORT \
+         GRAFANA_HTTP_PORT PROMETHEUS_HTTP_PORT TRAEFIK_DASHBOARD_PORT \
+         GITEA_URL JENKINS_URL SONARQUBE_URL NEXUS_URL REGISTRY_HOST KEYCLOAK_URL VAULT_URL \
+         DEFECTDOJO_URL DTRACK_URL DTRACK_API_URL GRAFANA_URL PROMETHEUS_URL TRAEFIK_URL \
          GITEA_WEBHOOK_ALLOWED_HOSTS GITEA_HOST
 }
 
@@ -128,24 +150,18 @@ image_for() {
   printf '%s' "${!var:?$var not set in versions.env}"
 }
 
-# wait_for_service <name> [path] [timeout] [host-port]. Behind Traefik it goes through
-# localhost:443 with --resolve so it works before the wildcard DNS record exists; in ports
-# mode it hits the published host port directly.
+# wait_for_service <name> <host-port> [path] [timeout]. Polls the published port on
+# localhost: Traefik's TLS entry point for that tool, or the container's own port in ports mode.
 wait_for_service() {
-  local name="$1" path="${2:-/}" timeout="${3:-300}" port="${4:-}" elapsed=0 url
-  local curl_opts=(-ksS -o /dev/null -w '%{http_code}' --max-time 5)
-  if [[ "$INGRESS" == ports ]]; then
-    [[ -n "$port" ]] || die "wait_for_service $name: host port required in ports mode"
-    url="http://127.0.0.1:${port}${path}"
-  else
-    url="https://${name}.${DOMAIN}${path}"
-    curl_opts+=(--resolve "${name}.${DOMAIN}:443:127.0.0.1")
-  fi
-  log "waiting for $url"
-  until curl "${curl_opts[@]}" "$url" | grep -qE '^[1-4][0-9]{2}$'; do
+  local name="$1" port="$2" path="${3:-/}" timeout="${4:-300}" elapsed=0 url
+  local scheme=https
+  [[ "$INGRESS" == ports ]] && scheme=http
+  url="${scheme}://127.0.0.1:${port}${path}"
+  log "waiting for $name at $url"
+  until curl -ksS -o /dev/null -w '%{http_code}' --max-time 5 "$url" | grep -qE '^[1-4][0-9]{2}$'; do
     sleep 5
     elapsed=$((elapsed + 5))
-    [[ $elapsed -lt $timeout ]] || { warn "$url not answering after ${timeout}s, check: docker compose -p $name logs"; return 0; }
+    [[ $elapsed -lt $timeout ]] || { warn "$name not answering after ${timeout}s, check: docker compose -p $name logs"; return 0; }
   done
-  log "$url is up"
+  log "$name is up"
 }

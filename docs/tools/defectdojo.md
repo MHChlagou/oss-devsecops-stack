@@ -18,7 +18,7 @@ SLAs and metrics.
 | Stack | `stacks/defectdojo/docker-compose.yml`, installed by `scripts/60-defectdojo.sh` |
 | Images | `DEFECTDOJO_DJANGO_IMAGE` (uwsgi, celery worker, celery beat, initializer), `DEFECTDOJO_NGINX_IMAGE`, `POSTGRES_IMAGE`, `REDIS_IMAGE` |
 | Data | `${DATA_ROOT}/defectdojo/db`, `${DATA_ROOT}/defectdojo/media` |
-| URL | `https://defectdojo.<DOMAIN>` |
+| URL | `https://<host>:8083` |
 | First login | `admin` with `DEFECTDOJO_ADMIN_PASSWORD` from `.env` |
 | Secrets | `DEFECTDOJO_SECRET_KEY` (sessions), `DEFECTDOJO_CREDENTIAL_AES_KEY` (encrypts stored credentials); losing the second one makes stored tool credentials unreadable |
 | Budget | 2 vCPU under load, 3 GB |

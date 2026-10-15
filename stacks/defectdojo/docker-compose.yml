@@ -1,9 +1,9 @@
 x-django-env: &django-env
   TZ: ${TZ}
   DD_DEBUG: "False"
-  DD_ALLOWED_HOSTS: defectdojo.${DOMAIN}
-  DD_SITE_URL: https://defectdojo.${DOMAIN}
-  DD_CSRF_TRUSTED_ORIGINS: https://defectdojo.${DOMAIN}
+  DD_ALLOWED_HOSTS: ${HOST_ADDRESS}
+  DD_SITE_URL: ${DEFECTDOJO_URL}
+  DD_CSRF_TRUSTED_ORIGINS: ${DEFECTDOJO_URL}
   DD_SESSION_COOKIE_SECURE: "True"
   DD_CSRF_COOKIE_SECURE: "True"
   DD_SECURE_SSL_REDIRECT: "False"
@@ -53,7 +53,7 @@ services:
       <<: *django-env
       DD_INITIALIZE: "true"
       DD_ADMIN_USER: admin
-      DD_ADMIN_MAIL: devsecops@${DOMAIN}
+      DD_ADMIN_MAIL: ${ADMIN_EMAIL}
       DD_ADMIN_FIRST_NAME: Admin
       DD_ADMIN_LAST_NAME: User
       DD_ADMIN_PASSWORD: ${DEFECTDOJO_ADMIN_PASSWORD}
@@ -119,10 +119,9 @@ services:
       - devsecops
     labels:
       - traefik.enable=true
-      - traefik.http.routers.defectdojo.rule=Host(`defectdojo.${DOMAIN}`)
-      - traefik.http.routers.defectdojo.entrypoints=websecure
+      - traefik.http.routers.defectdojo.rule=PathPrefix(`/`)
+      - traefik.http.routers.defectdojo.entrypoints=defectdojo
       - traefik.http.routers.defectdojo.tls=true
-      - traefik.http.routers.defectdojo.tls.certresolver=${CERT_RESOLVER}
       - traefik.http.services.defectdojo.loadbalancer.server.port=8080
 
 networks:

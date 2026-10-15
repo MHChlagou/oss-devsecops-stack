@@ -17,10 +17,9 @@ services:
       - devsecops
     labels:
       - traefik.enable=true
-      - traefik.http.routers.vault.rule=Host(`vault.${DOMAIN}`)
-      - traefik.http.routers.vault.entrypoints=websecure
+      - traefik.http.routers.vault.rule=PathPrefix(`/`)
+      - traefik.http.routers.vault.entrypoints=vault
       - traefik.http.routers.vault.tls=true
-      - traefik.http.routers.vault.tls.certresolver=${CERT_RESOLVER}
       - traefik.http.services.vault.loadbalancer.server.port=8200
 
 networks:

@@ -44,9 +44,8 @@ services:
       GITEA__service__DISABLE_REGISTRATION: "true"
       GITEA__service__REQUIRE_SIGNIN_VIEW: "true"
       GITEA__actions__ENABLED: "false"
-      # Gitea refuses webhooks to private addresses by default. Allow only the platform
-      # hostnames (Traefik mode) or this host's address (ports mode), never whole private
-      # ranges, so a repository admin cannot aim webhooks at arbitrary internal services.
+      # Gitea refuses webhooks to private addresses by default. Allow only this host, never
+      # whole private ranges, so a repository admin cannot aim webhooks at other internal services.
       GITEA__webhook__ALLOWED_HOST_LIST: "${GITEA_WEBHOOK_ALLOWED_HOSTS}"
       GITEA__log__LEVEL: Info
     ports:
@@ -59,10 +58,9 @@ services:
       - devsecops
     labels:
       - traefik.enable=true
-      - traefik.http.routers.gitea.rule=Host(`gitea.${DOMAIN}`)
-      - traefik.http.routers.gitea.entrypoints=websecure
+      - traefik.http.routers.gitea.rule=PathPrefix(`/`)
+      - traefik.http.routers.gitea.entrypoints=gitea
       - traefik.http.routers.gitea.tls=true
-      - traefik.http.routers.gitea.tls.certresolver=${CERT_RESOLVER}
       - traefik.http.services.gitea.loadbalancer.server.port=3000
 
 networks:

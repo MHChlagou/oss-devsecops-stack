@@ -9,6 +9,6 @@ require_traefik_ingress
 ensure_network
 ensure_dir "$DATA_ROOT/keycloak/db"
 compose_up keycloak
-wait_for_service keycloak / 300
-log "Keycloak admin console: https://keycloak.${DOMAIN}/admin (user admin, password KEYCLOAK_ADMIN_PASSWORD in .env)"
+wait_for_service keycloak "$KEYCLOAK_HTTP_PORT" / 300
+log "Keycloak admin console: ${KEYCLOAK_URL}/admin (user admin, password KEYCLOAK_ADMIN_PASSWORD in .env)"
 log "next: create a realm 'devsecops' and one OIDC client per tool (gitea, jenkins, sonarqube, nexus, defectdojo, dtrack, grafana)"

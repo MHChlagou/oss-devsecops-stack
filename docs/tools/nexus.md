@@ -7,7 +7,7 @@ pipeline builds, and becomes the only place builds fetch from.
 
 Stage 2 pulls dependencies through Nexus proxies, which makes builds reproducible, fast and
 independent of upstream outages. Stage 6 pushes the built image to the hosted Docker
-repository at `registry.<DOMAIN>`, where the deployment pulls it. Every artifact that reaches
+repository at `<host>:5000`, where the deployment pulls it. Every artifact that reaches
 staging has passed through a scan on the way in.
 
 ## Free edition limits
@@ -29,7 +29,7 @@ If it does not, keep Packagist direct through an HTTP proxy, or run Repman or Sa
 | Stack | `stacks/nexus/docker-compose.yml`, installed by `scripts/55-nexus.sh` |
 | Image | `NEXUS_IMAGE` |
 | Data | `${DATA_ROOT}/nexus/data` (database, blob stores, logs) |
-| URLs | `https://nexus.<DOMAIN>` (UI and package repositories), `https://registry.<DOMAIN>` (Docker connector on port 5000) |
+| URLs | `https://<host>:8081` (UI and package repositories), `https://<host>:5000` (Docker connector on port 5000) |
 | First login | `admin`, password in `${DATA_ROOT}/nexus/data/admin.password`, change forced, file deleted afterwards |
 | Heap | 2 GB heap, 2 GB direct memory (`INSTALL4J_ADD_VM_PARAMS`) |
 | Budget | 2 vCPU under load, 4.5 GB |
@@ -42,8 +42,9 @@ If it does not, keep Packagist direct through an HTTP proxy, or run Repman or Sa
    - `npm-proxy` (remote `https://registry.npmjs.org`), `npm-hosted`, `npm-group` with both.
    - `composer-proxy` (remote `https://repo.packagist.org`) if the format exists.
    - `docker-proxy` (remote `https://registry-1.docker.io`, Docker Hub index), `docker-hosted`
-     with HTTP connector port `5000`, `docker-group` with both. Traefik already routes
-     `registry.<DOMAIN>` to port 5000, so pushes and pulls use that hostname over HTTPS.
+     with HTTP connector port `5000`, `docker-group` with both. Traefik already serves port
+     5000 with TLS, so pushes and pulls use `<host>:5000` over HTTPS, and the Traefik script
+     trusts the certificate for the host's Docker daemon.
 4. Security, Users: `ci` with role `nx-repository-view-*-*-*` plus `nx-repository-admin-docker-docker-hosted-edit`,
    store it in Jenkins as `nexus-registry` (or in Vault).
 5. Cleanup policies: remove proxied components not downloaded for 90 days, and hosted images
@@ -56,18 +57,18 @@ In the Jenkins agent or in each project:
 
 ```ini
 # .npmrc
-registry=https://nexus.<DOMAIN>/repository/npm-group/
+registry=https://<host>:8081/repository/npm-group/
 ```
 
 ```json
 // composer.json
-"repositories": [{ "type": "composer", "url": "https://nexus.<DOMAIN>/repository/composer-proxy/" }],
+"repositories": [{ "type": "composer", "url": "https://<host>:8081/repository/composer-proxy/" }],
 "config": { "secure-http": true }
 ```
 
-Docker: `docker login registry.<DOMAIN>` on the agent, then `registry.<DOMAIN>/<app>:<tag>`.
+Docker: `docker login <host>:5000` on the agent, then `<host>:5000/<app>:<tag>`.
 To pull base images through the proxy, set the Docker daemon's `registry-mirrors` to
-`https://registry.<DOMAIN>` on the build host, or reference `registry.<DOMAIN>/library/php:8.3`
+`https://<host>:5000` on the build host, or reference `<host>:5000/library/php:8.3`
 explicitly in Dockerfiles.
 
 ## Operations

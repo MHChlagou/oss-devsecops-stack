@@ -24,7 +24,7 @@ it. It also runs a single compute engine worker, so five simultaneous analyses q
 | Stack | `stacks/sonarqube/docker-compose.yml`, installed by `scripts/50-sonarqube.sh` |
 | Images | `SONARQUBE_IMAGE` (`sonarqube:community`), `POSTGRES_IMAGE` |
 | Data | `${DATA_ROOT}/sonarqube/data` (Elasticsearch index), `extensions` (plugins), `logs`, `db` |
-| URL | `https://sonarqube.<DOMAIN>` |
+| URL | `https://<host>:9000` |
 | First login | `admin` / `admin`, password change forced |
 | Heaps | web 1 GB, compute engine 2 GB, search 1 GB, set through `SONAR_*_JAVAOPTS` |
 | Budget | 2.5 vCPU under load, 5 GB with PostgreSQL |
@@ -36,12 +36,12 @@ Elasticsearch refuses to start.
 
 1. Change the admin password. Under Administration, Security, disable "Anyone" permissions
    so projects are private by default.
-2. Administration, Configuration, Webhooks: add `https://jenkins.<DOMAIN>/sonarqube-webhook/`.
+2. Administration, Configuration, Webhooks: add `https://<host>:8080/sonarqube-webhook/`.
    Without it `waitForQualityGate` times out.
 3. My account, Security: create a token of type "Global analysis token" named `jenkins`,
    store it in Jenkins as secret text `sonarqube-token`.
 4. In Jenkins, Manage Jenkins, System, SonarQube servers: name `sonarqube`, URL
-   `https://sonarqube.<DOMAIN>`, token credential `sonarqube-token`. Or add the equivalent
+   `https://<host>:9000`, token credential `sonarqube-token`. Or add the equivalent
    `sonarGlobalConfiguration` block to the JCasC file.
 5. Quality gate: copy "Sonar way", add conditions on overall code for the first weeks
    (for example security rating A, no blocker issues), then switch to "new code" conditions

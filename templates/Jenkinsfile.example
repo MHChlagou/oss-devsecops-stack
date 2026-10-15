@@ -1,14 +1,15 @@
 // Reference pipeline for a PHP + TypeScript application on the DevSecOps platform.
 // Copy to the repository root as Jenkinsfile and adapt the build stage.
-// Gitea webhook target: https://jenkins.<domain>/gitea-webhook/post (Gitea plugin).
+// Gitea webhook target: <JENKINS_URL>/gitea-webhook/post (Gitea plugin).
 // Credentials expected in Jenkins: sonarqube-token, dtrack-api-key, defectdojo-api-key, nexus-registry.
 
 pipeline {
   agent { label 'docker-agent' }
 
   environment {
-    DOMAIN       = 'devsecops.example.internal'
-    IMAGE        = "registry.${DOMAIN}/${env.JOB_BASE_NAME}:${env.BUILD_NUMBER}"
+    REGISTRY     = '10.0.0.20:5000'          // REGISTRY_HOST from .env: HOST_ADDRESS:REGISTRY_PORT
+    DEFECTDOJO   = 'https://10.0.0.20:8083'  // DEFECTDOJO_URL from .env
+    IMAGE        = "${REGISTRY}/${env.JOB_BASE_NAME}:${env.BUILD_NUMBER}"
     REPORT_DIR   = 'security-reports'
     STAGING_URL  = 'https://staging.example.internal'
   }
@@ -90,7 +91,7 @@ pipeline {
           trivy image --severity HIGH,CRITICAL --exit-code 1 --format json --output $REPORT_DIR/trivy-image.json $IMAGE
         '''
         withCredentials([usernamePassword(credentialsId: 'nexus-registry', usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {
-          sh 'echo "$REG_PASS" | docker login registry.$DOMAIN -u "$REG_USER" --password-stdin && docker push $IMAGE'
+          sh 'echo "$REG_PASS" | docker login $REGISTRY -u "$REG_USER" --password-stdin && docker push $IMAGE'
         }
       }
     }
@@ -126,7 +127,7 @@ pipeline {
         sh '''
           import_scan() {
             [ -f "$2" ] || return 0
-            curl -fsS -X POST "https://defectdojo.$DOMAIN/api/v2/import-scan/" \
+            curl -fsS -X POST "$DEFECTDOJO/api/v2/import-scan/" \
               -H "Authorization: Token $DD_KEY" \
               -F "scan_type=$1" -F "file=@$2" \
               -F "product_name=$JOB_BASE_NAME" -F "engagement_name=ci" \

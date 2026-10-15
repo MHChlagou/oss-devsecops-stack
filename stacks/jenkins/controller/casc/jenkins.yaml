@@ -48,4 +48,4 @@ security:
 unclassified:
   location:
     url: ${JENKINS_URL}
-    adminAddress: "devsecops@${DOMAIN}"
+    adminAddress: "${ADMIN_EMAIL}"

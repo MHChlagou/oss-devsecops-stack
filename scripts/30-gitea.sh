@@ -10,7 +10,7 @@ ensure_network
 ensure_dir "$DATA_ROOT/gitea/db"
 ensure_dir "$DATA_ROOT/gitea/data" 1000:1000
 compose_up gitea
-wait_for_service gitea /api/healthz 300 "${GITEA_HTTP_PORT:-3000}"
+wait_for_service gitea "$GITEA_HTTP_PORT" /api/healthz 300
 
 # First admin account. INSTALL_LOCK=true skips the web installer, so the account is created here.
 # Idempotent: skipped when the user already exists.
@@ -19,8 +19,8 @@ if docker exec -u git gitea gitea admin user list --admin 2>/dev/null | awk 'NR>
   log "admin user $ADMIN_USER already exists"
 else
   log "creating admin user $ADMIN_USER (password GITEA_ADMIN_PASSWORD in .env, must be changed at first login)"
-  docker exec -u git -e GITEA_ADMIN_PASSWORD="$GITEA_ADMIN_PASSWORD" gitea \
-    sh -c 'gitea admin user create --admin --username gitea_admin --email "devsecops@'"$DOMAIN"'" --password "$GITEA_ADMIN_PASSWORD" --must-change-password' >/dev/null
+  docker exec -u git -e GITEA_ADMIN_PASSWORD="$GITEA_ADMIN_PASSWORD" -e ADMIN_EMAIL="$ADMIN_EMAIL" gitea \
+    sh -c 'gitea admin user create --admin --username gitea_admin --email "$ADMIN_EMAIL" --password "$GITEA_ADMIN_PASSWORD" --must-change-password' >/dev/null
 fi
 
 log "Gitea: ${GITEA_URL}"

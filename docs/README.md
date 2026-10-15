@@ -11,7 +11,7 @@
 
 | Page | What it covers |
 |---|---|
-| [Traefik](tools/traefik.md) | routing, TLS modes (self-signed, internal CA, Let's Encrypt), adding a service |
+| [Traefik](tools/traefik.md) | one TLS port per tool, generated or client certificate, adding a service |
 | [Keycloak](tools/keycloak.md) | realm and group design, one OIDC client per tool with redirect URIs |
 | [Vault](tools/vault.md) | init and unseal procedure, AppRole for Jenkins, backup caveats |
 | [Gitea](tools/gitea.md) | hardening settings, branch protection, Jenkins integration, dump and restore |

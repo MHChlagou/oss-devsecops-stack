@@ -47,10 +47,9 @@ services:
       - devsecops
     labels:
       - traefik.enable=true
-      - traefik.http.routers.sonarqube.rule=Host(`sonarqube.${DOMAIN}`)
-      - traefik.http.routers.sonarqube.entrypoints=websecure
+      - traefik.http.routers.sonarqube.rule=PathPrefix(`/`)
+      - traefik.http.routers.sonarqube.entrypoints=sonarqube
       - traefik.http.routers.sonarqube.tls=true
-      - traefik.http.routers.sonarqube.tls.certresolver=${CERT_RESOLVER}
       - traefik.http.services.sonarqube.loadbalancer.server.port=9000
 
 networks:

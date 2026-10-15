@@ -17,13 +17,13 @@ tracks versions per project, applies licence and vulnerability policies, and not
 | Stack | `stacks/dependency-track/docker-compose.yml`, installed by `scripts/65-dependency-track.sh` |
 | Images | `DTRACK_API_IMAGE`, `DTRACK_FRONTEND_IMAGE`, `POSTGRES_IMAGE` |
 | Data | `${DATA_ROOT}/dtrack/data` (vulnerability database mirrors, indexes), `${DATA_ROOT}/dtrack/db` |
-| URLs | `https://dtrack.<DOMAIN>` (frontend), `https://dtrack-api.<DOMAIN>` (API server, used by the frontend's browser code and by Jenkins) |
+| URLs | `https://<host>:8090` (frontend), `https://<host>:8091` (API server, used by the frontend's browser code and by Jenkins) |
 | First login | `admin` / `admin`, password change forced |
 | Heap | 4 GB (`EXTRA_JAVA_OPTIONS`), the documented minimum |
 | Budget | 2 vCPU under load, 5.5 GB; CPU heavy at night when feeds update |
 
 The frontend is a static application that calls the API server from the browser, which is why
-the API has its own hostname and CORS is enabled for the frontend origin.
+the API has its own port and CORS is enabled for the frontend origin.
 
 ## First-run steps
 
@@ -31,7 +31,7 @@ the API has its own hostname and CORS is enabled for the frontend origin.
 2. Administration, Access Management, Teams: create `jenkins` with permissions
    `BOM_UPLOAD`, `PROJECT_CREATION_UPLOAD`, `VIEW_PORTFOLIO`, `VIEW_VULNERABILITY`; create an
    API key, store it in Jenkins as `dtrack-api-key`.
-3. In Jenkins, Manage Jenkins, System, Dependency-Track: URL `https://dtrack-api.<DOMAIN>`,
+3. In Jenkins, Manage Jenkins, System, Dependency-Track: URL `https://<host>:8091`,
    API key credential, tick "Auto create projects". The `dependencyTrackPublisher` step in the
    example Jenkinsfile then works.
 4. Administration, Analyzers: keep OSS Index and the internal analyzer on; add a free NVD API

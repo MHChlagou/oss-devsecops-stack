@@ -52,7 +52,7 @@ flowchart LR
     S9 --> ST
     S1 & S3 & S4 & S6 & S7 & S9 -.reports.-> REP["Jenkins build page<br/>archived artifacts"]
 
-    PROXY["Client reverse proxy (optional)<br/>TLS, hostnames"] -. forwards to host ports .-> GT & J & SQ & NX
+    PROXY["Client reverse proxy (optional)<br/>TLS"] -. forwards to host ports .-> GT & J & SQ & NX
 ```
 
 ## Install
@@ -61,7 +61,7 @@ In `.env`, before the first run:
 
 ```ini
 INGRESS=ports
-HOST_ADDRESS=10.0.0.20        # IP or DNS name developers use to reach the host; defaults to the first host IP
+HOST_ADDRESS=10.0.0.20        # server name or IP developers use to reach the host; defaults to the first host IP
 JENKINS_MAX_AGENTS=3          # or 5 with 64 GB, see below
 ```
 
@@ -145,5 +145,6 @@ Full tables, backups and the regional note are in [minimal-setup.md](minimal-set
 
 Add Traefik first (`sudo ./install.sh --only traefik` after switching `INGRESS=traefik` and
 rerunning the four components so their URLs change), then the other components one at a time
-as described in the minimal setup page. Switching ingress later is a URL change in every tool
-and a re-clone for developers, so decide it before the first repository is created.
+as described in the minimal setup page. The ports stay the same, but every URL switches from
+`http` to `https`: tool settings, webhooks and developer remotes need updating, so decide the
+ingress mode before the first repository is created.

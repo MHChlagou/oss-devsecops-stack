@@ -7,14 +7,14 @@ with versions, licences and package URLs, for Dependency-Track.
 
 Pipeline stage 5, `syft dir:. -o cyclonedx-json`, right after the dependency scan. The
 Jenkins Dependency-Track plugin uploads the file. Generate the SBOM from the final image
-as well (`syft registry.<DOMAIN>/app:42`) when the deployment artifact is the image, because
+as well (`syft <host>:5000/app:42`) when the deployment artifact is the image, because
 that is what runs in production.
 
 ## Commands
 
 ```bash
 syft dir:. -o cyclonedx-json > sbom.cdx.json
-syft registry.<DOMAIN>/app:42 -o cyclonedx-json > image-sbom.cdx.json
+syft <host>:5000/app:42 -o cyclonedx-json > image-sbom.cdx.json
 syft dir:. -o spdx-json > sbom.spdx.json       # if a client asks for SPDX
 syft dir:. -o table                             # human readable
 ```

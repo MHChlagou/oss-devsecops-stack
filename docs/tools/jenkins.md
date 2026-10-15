@@ -19,7 +19,7 @@ Nexus and DefectDojo, and reports a commit status back to Gitea. Nothing runs on
 | Socket proxy | `tecnativa/docker-socket-proxy`, the only thing that touches `/var/run/docker.sock` |
 | Config | `stacks/jenkins/controller/casc/jenkins.yaml` (Configuration as Code), mounted read-only |
 | Data | `${DATA_ROOT}/jenkins/home` |
-| URL | `https://jenkins.<DOMAIN>` |
+| URL | `https://<host>:8080` |
 | First login | `JENKINS_ADMIN_USER` and `JENKINS_ADMIN_PASSWORD` from `.env` |
 | Budget | controller 1.5 vCPU, 2.5 GB; each agent 2 vCPU, 4 GB; `JENKINS_MAX_AGENTS` agents at once |
 

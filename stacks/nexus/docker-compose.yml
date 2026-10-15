@@ -12,17 +12,15 @@ services:
       - devsecops
     labels:
       - traefik.enable=true
-      - traefik.http.routers.nexus.rule=Host(`nexus.${DOMAIN}`)
-      - traefik.http.routers.nexus.entrypoints=websecure
+      - traefik.http.routers.nexus.rule=PathPrefix(`/`)
+      - traefik.http.routers.nexus.entrypoints=nexus
       - traefik.http.routers.nexus.tls=true
-      - traefik.http.routers.nexus.tls.certresolver=${CERT_RESOLVER}
       - traefik.http.routers.nexus.service=nexus
       - traefik.http.services.nexus.loadbalancer.server.port=8081
       # Docker registry connector (configure a hosted docker repo on HTTP port 5000 in the Nexus UI)
-      - traefik.http.routers.registry.rule=Host(`registry.${DOMAIN}`)
-      - traefik.http.routers.registry.entrypoints=websecure
+      - traefik.http.routers.registry.rule=PathPrefix(`/`)
+      - traefik.http.routers.registry.entrypoints=registry
       - traefik.http.routers.registry.tls=true
-      - traefik.http.routers.registry.tls.certresolver=${CERT_RESOLVER}
       - traefik.http.routers.registry.service=registry
       - traefik.http.services.registry.loadbalancer.server.port=5000
 
