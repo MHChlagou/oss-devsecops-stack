@@ -111,6 +111,11 @@ Nothing else changes.
   finish within a minute or two; raise the worker count in `stacks/defectdojo/docker-compose.yml`
   only if imports pile up.
 
+## Smaller than this
+
+The four-tool core without Keycloak, Vault, DefectDojo, Dependency-Track and observability
+needs 17 GB for the platform instead of 30; hosts and prices are in [minimal-setup.md](minimal-setup.md).
+
 ## Scaling beyond five
 
 Each extra agent costs 2 vCPU and 4 GB RAM on the build host and nothing on the platform until

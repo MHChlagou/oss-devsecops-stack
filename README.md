@@ -95,7 +95,8 @@ per-service budgets and the two-host layout are in [docs/sizing.md](docs/sizing.
 - A wildcard DNS record `*.<domain>` pointing at the host (internal DNS is fine).
 - Ports 80, 443 and the Gitea SSH port free.
 - A smaller host can run a subset with `--only`; the prerequisites script warns when the
-  host is below the budget for the configured agent count.
+  host is below the budget for the selected components and agent count. The four-tool core
+  (Jenkins, Gitea, Nexus, SonarQube) with its hosts and prices is in [docs/minimal-setup.md](docs/minimal-setup.md).
 
 ## Install
 

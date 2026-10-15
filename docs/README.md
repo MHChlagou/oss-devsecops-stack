@@ -1,5 +1,7 @@
 # Documentation
 
+- [Minimal setup](minimal-setup.md): Jenkins, Gitea, Nexus and SonarQube only, with its
+  resource budget, minimum hosts and monthly cost on AWS, Azure, Google Cloud and a dedicated provider.
 - [Sizing for five parallel builds](sizing.md): per-build and per-service budgets, minimum and
   recommended hosts, single-host versus two-host layout, known bottlenecks.
 

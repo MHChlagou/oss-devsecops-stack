@@ -54,16 +54,29 @@ create_env() {
 }
 
 check_resources() {
-  # Budget from docs/sizing.md: 24GB and 6 vCPU for the platform, plus 4GB and 2 vCPU per concurrent build.
-  local mem_gb cpus agents need_gb need_cpu
-  agents="${JENKINS_MAX_AGENTS:-5}"
-  need_gb=$(( 24 + 4 * agents ))
-  need_cpu=$(( 6 + 2 * agents ))
+  # Budgets from docs/sizing.md, in MB and sustained vCPU, summed over the selected components
+  # (INSTALL_COMPONENTS from install.sh, every component when run standalone) plus 4GB and
+  # 2 vCPU per parallel build. Peaks do not coincide, so the host passes at 90% of the sum.
+  local -A ram_mb=([traefik]=128 [keycloak]=1536 [vault]=256 [gitea]=1536 [jenkins]=2560
+                   [sonarqube]=5120 [nexus]=4608 [defectdojo]=3072 [dependency-track]=5632
+                   [observability]=2560 [scanners]=0)
+  local -A cpu=([traefik]=0 [keycloak]=0 [vault]=0 [gitea]=0 [jenkins]=1 [sonarqube]=1
+                [nexus]=1 [defectdojo]=1 [dependency-track]=1 [observability]=1 [scanners]=0)
+  local components="${INSTALL_COMPONENTS:-${!ram_mb[*]}}"
+  local agents="${JENKINS_MAX_AGENTS:-5}"
+  local need_mb=3072 need_cpu=1 c mem_gb cpus need_gb
+  for c in ${components//,/ }; do
+    need_mb=$(( need_mb + ${ram_mb[$c]:-0} ))
+    need_cpu=$(( need_cpu + ${cpu[$c]:-0} ))
+  done
+  need_mb=$(( need_mb + 4096 * agents ))
+  need_cpu=$(( need_cpu + 2 * agents ))
+  need_gb=$(( (need_mb + 1023) / 1024 ))
   mem_gb=$(( $(awk '/MemTotal/ {print $2}' /proc/meminfo) / 1024 / 1024 ))
   cpus=$(nproc)
-  log "host has ${mem_gb}GB RAM and ${cpus} CPUs; ${agents} parallel builds need about ${need_gb}GB and ${need_cpu} vCPU"
-  [[ $mem_gb -ge $need_gb ]] || warn "RAM below the budget for JENKINS_MAX_AGENTS=${agents}. Lower it in .env, split onto two hosts, or add memory (docs/sizing.md)."
-  [[ $cpus -ge $need_cpu ]] || warn "CPU below the budget for JENKINS_MAX_AGENTS=${agents}. Builds will queue on CPU rather than fail."
+  log "host has ${mem_gb}GB RAM and ${cpus} CPUs; selected components with ${agents} parallel builds need about ${need_gb}GB and ${need_cpu} vCPU"
+  [[ $(( mem_gb * 10 )) -ge $(( need_gb * 9 )) ]] || warn "RAM below the budget for this selection with JENKINS_MAX_AGENTS=${agents}. Lower the agent count in .env, split onto two hosts, or add memory (docs/sizing.md, docs/minimal-setup.md)."
+  [[ $(( cpus * 10 )) -ge $(( need_cpu * 9 )) ]] || warn "CPU below the budget for this selection. Builds queue on CPU rather than fail."
 }
 
 install_docker

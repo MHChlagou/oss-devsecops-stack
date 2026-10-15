@@ -44,6 +44,18 @@ if [[ -n "$UNINSTALL" ]]; then
   exit 0
 fi
 
+# The selected component list is passed to prereqs so its resource check matches what will run.
+selected=()
+for script in scripts/[0-9][0-9]-*.sh; do
+  component="$(component_of "$script")"
+  [[ "$component" == prereqs ]] && continue
+  if [[ -n "$ONLY" ]] && ! in_list "$component" "$ONLY"; then continue; fi
+  if [[ -n "$SKIP" ]] && in_list "$component" "$SKIP"; then continue; fi
+  selected+=("$component")
+done
+INSTALL_COMPONENTS="$(IFS=,; echo "${selected[*]}")"
+export INSTALL_COMPONENTS
+
 # prereqs always runs first unless explicitly skipped: it creates .env and installs docker.
 failed=()
 for script in scripts/[0-9][0-9]-*.sh; do
