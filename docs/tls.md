@@ -129,14 +129,15 @@ public URLs simply work:
 | Nexus registry for image pushes | `<host>:5000`, trusted by the host's Docker daemon |
 | Clone URLs reported by Gitea | `https://<host>/gitea/<org>/<repo>.git`, usable by agents as they are |
 
-Gitea delivers webhooks to `https://<host>/jenkins/...` with verification on: the certificate
-directory is mounted into its container and listed in `SSL_CERT_DIR`, which Go's TLS stack
-reads. SonarQube's webhook to Jenkins is plain HTTP inside the Docker network when configured
+Gitea delivers webhooks to `https://<host>/jenkins/...` with verification on: the Gitea step
+copies the public certificate to `${DATA_ROOT}/gitea/trust/`, mounted read-only into the
+container and listed in `SSL_CERT_DIR`, which Go's TLS stack reads. The private key never
+leaves Traefik's directory. SonarQube's webhook to Jenkins is plain HTTP inside the Docker network when configured
 as `http://jenkins:8080/jenkins/sonarqube-webhook/`, or the public URL once the SonarQube JVM
 trusts the certificate.
 
-After a certificate change (new `HOST_ADDRESS`, client CA), rerun the Jenkins component so the
-images are rebuilt with the new file: `sudo ./install.sh --only jenkins`. Running builds are
+After a certificate change (new `HOST_ADDRESS`, client CA), rerun the Jenkins and Gitea
+components so they pick up the new file: `sudo ./install.sh --only jenkins,gitea`. Running builds are
 not interrupted; agents started afterwards use the new image.
 
 The internal container addresses (`http://gitea:3000`, `http://sonarqube:9000/sonarqube`,

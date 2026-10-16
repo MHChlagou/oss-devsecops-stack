@@ -14,7 +14,7 @@ Nexus and DefectDojo, and reports a commit status back to Gitea. Nothing runs on
 | Item | Value |
 |---|---|
 | Stack | `stacks/jenkins/docker-compose.yml`, installed by `scripts/40-jenkins.sh` |
-| Controller image | `devsecops/jenkins:local`, built from `stacks/jenkins/controller/Dockerfile` on top of `JENKINS_IMAGE`, with plugins from `plugins.txt` |
+| Controller image | `devsecops/jenkins:local`, built from `stacks/jenkins/controller/Dockerfile` on top of `JENKINS_IMAGE`, with plugins pinned in `plugins.lock.txt` |
 | Agent image | `devsecops/jenkins-agent:local`, built from `stacks/jenkins/agent/Dockerfile` |
 | Socket proxy | `tecnativa/docker-socket-proxy`, the only thing that touches `/var/run/docker.sock` |
 | Config | `stacks/jenkins/controller/casc/jenkins.yaml` (Configuration as Code), mounted read-only |
@@ -39,11 +39,25 @@ each project picks its versions.
 
 ## Configuration as Code
 
-Everything that would normally be clicked in Manage Jenkins lives in `jenkins.yaml`:
-security realm, authorisation, CSRF, the Docker cloud and template, the instance URL.
+`jenkins.yaml` is re-applied at every Jenkins start, and every setting it defines overwrites
+what was saved in the UI. It is therefore kept to what must stay fixed:
+
+| Owned by `jenkins.yaml`, reset at each start | Where it comes from |
+|---|---|
+| security realm and the `admin` account password | `JENKINS_ADMIN_USER`, `JENKINS_ADMIN_PASSWORD` in `.env` |
+| authorisation strategy, CSRF crumb issuer, agent-to-controller security | the file |
+| zero executors on the controller, exclusive mode | the file |
+| the `local-docker` cloud and its `docker-agent` template | the file, cap from `JENKINS_MAX_AGENTS` |
+| Jenkins URL and admin e-mail | `JENKINS_URL`, `ADMIN_EMAIL` |
+| Git host key verification strategy | the file |
+
+Everything else is managed in the UI and persists in `${DATA_ROOT}/jenkins/home` across
+restarts and container recreation: jobs and build history, credentials, other users, the
+system message, Gitea and SonarQube server entries, tool installations, every other plugin
+setting. To change an owned setting, edit the file or `.env` and run
+`sudo ./install.sh --only jenkins`; changing it in the UI only lasts until the next start.
 The file supports `${ENV}` substitution, which is how the admin password and agent cap
-arrive from `.env`. To change anything: edit the file, run `sudo ./install.sh --only jenkins`.
-The UI still allows edits, but they are lost at the next restart unless added to the file.
+arrive from `.env`.
 
 Things to add to the file as the platform matures:
 
@@ -66,19 +80,38 @@ Long term these move to Vault (see `vault.md`) and the pipeline uses `withVault`
 
 ## Plugins
 
-`plugins.txt` pins the set: JCasC, Docker plugin and Docker pipeline, Pipeline, Git, Gitea,
-credentials binding, matrix auth, OIDC, Vault, SonarQube scanner, Dependency-Track publisher,
-Warnings Next Generation (renders Semgrep SARIF and Trivy in the build page), JUnit, HTML
-publisher, timestamper, Prometheus metrics. Add a plugin by appending its short name and
-rebuilding. The plugin manager in the UI works too but is lost on rebuild.
+Two files in `stacks/jenkins/controller/`:
+
+- `plugins.txt` lists the plugins the platform needs, by short name: JCasC, Docker plugin and
+  Docker pipeline, Pipeline, Git, Gitea, credentials binding, matrix auth, OIDC, Vault,
+  SonarQube scanner, Dependency-Track publisher, Warnings Next Generation, JUnit, HTML
+  publisher, timestamper, Prometheus metrics.
+- `plugins.lock.txt` is generated from it by `lock-plugins.sh`: every plugin and every
+  dependency at an exact version, resolved against the Jenkins core pinned in `versions.env`.
+  The image installs from the lock only, so rebuilding the controller (each run of the
+  component, or a certificate change) installs exactly the same set.
+
+Adding or upgrading plugins:
+
+```bash
+echo kubernetes >> stacks/jenkins/controller/plugins.txt     # or edit the file
+stacks/jenkins/controller/lock-plugins.sh                    # needs Docker, not root
+git diff stacks/jenkins/controller/plugins.lock.txt          # review what changes
+sudo ./install.sh --only jenkins
+```
+
+Do not install plugins from the Jenkins UI. They are written to the Jenkins home and survive a
+restart, but the image does not know them: the next upgrade of the locked set can leave them
+with incompatible dependencies, and Jenkins then refuses to load them. A plugin installed from
+the UI belongs in `plugins.txt`.
 
 ## Operations
 
 - Backup: `${DATA_ROOT}/jenkins/home` nightly. Exclude `workspace/` and `caches/`. The
   JCasC file and `plugins.txt` are in Git, so a controller can be rebuilt from scratch.
-- Upgrade: bump `JENKINS_IMAGE` (LTS line), rerun the component. Plugins update to the
-  latest compatible versions at build time; pin versions in `plugins.txt` as `name:version`
-  when reproducibility matters more than freshness.
+- Upgrade: set `JENKINS_IMAGE` in `versions.env` to the new LTS tag (`jenkins/jenkins:<version>-lts-jdk21`),
+  run `lock-plugins.sh` so the plugins resolve against the new core, review both diffs,
+  commit, rerun the component. Nothing upgrades without these steps.
 - Logs: `docker logs jenkins`. Build logs are in the UI and under `jobs/*/builds/*/log`.
 - Metrics: `/prometheus` is scraped by the observability stack; queue length and executor
   usage tell you when to raise `JENKINS_MAX_AGENTS`.

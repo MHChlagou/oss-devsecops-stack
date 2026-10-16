@@ -27,5 +27,7 @@ RUN set -eu; for c in /tmp/platform-certs/*.crt; do \
     rm -rf /tmp/platform-certs
 USER jenkins
 
-COPY plugins.txt /usr/share/jenkins/ref/plugins.txt
-RUN jenkins-plugin-cli --plugin-file /usr/share/jenkins/ref/plugins.txt
+# Every plugin and dependency pinned (lock-plugins.sh regenerates the lock from plugins.txt), so a
+# rebuild installs exactly the tested set and never upgrades a plugin by surprise.
+COPY plugins.lock.txt /usr/share/jenkins/ref/plugins.lock.txt
+RUN jenkins-plugin-cli --plugin-file /usr/share/jenkins/ref/plugins.lock.txt --latest false

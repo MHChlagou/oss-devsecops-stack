@@ -1,3 +1,6 @@
+# Plugins this platform needs, one per line. Dependencies are resolved by lock-plugins.sh into
+# plugins.lock.txt, which the image installs. After editing: ./lock-plugins.sh, review, commit,
+# sudo ./install.sh --only jenkins. Do not install plugins from the Jenkins UI.
 configuration-as-code
 docker-plugin
 docker-workflow

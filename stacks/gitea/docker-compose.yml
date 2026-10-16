@@ -49,14 +49,15 @@ services:
       GITEA__webhook__ALLOWED_HOST_LIST: "${GITEA_WEBHOOK_ALLOWED_HOSTS}"
       # Webhooks target Jenkins behind Traefik's certificate (self-signed by default). Go reads
       # every certificate in these directories, so the platform certificate is trusted and
-      # verification stays on. Empty directory in ports mode.
+      # verification stays on. The directory holds the public certificate only, copied by
+      # scripts/30-gitea.sh; Traefik's private key is never mounted here. Empty in ports mode.
       SSL_CERT_DIR: /etc/ssl/certs:/platform-certs
       GITEA__log__LEVEL: Info
     ports:
       - "${GITEA_SSH_PORT}:22"
     volumes:
       - ${DATA_ROOT}/gitea/data:/data
-      - ${DATA_ROOT}/traefik/certs:/platform-certs:ro
+      - ${DATA_ROOT}/gitea/trust:/platform-certs:ro
       - /etc/localtime:/etc/localtime:ro
     networks:
       - internal

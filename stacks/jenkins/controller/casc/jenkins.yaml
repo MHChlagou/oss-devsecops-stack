@@ -1,5 +1,7 @@
+# Settings listed here are re-applied at every Jenkins start and overwrite UI edits. Keep this file to
+# what must stay fixed (security, executors, the build cloud, the URL); everything else, including the
+# system message, is managed in the UI and persists in the Jenkins home.
 jenkins:
-  systemMessage: "DevSecOps Jenkins. Configuration is managed by JCasC: edit stacks/jenkins/controller/casc/jenkins.yaml, not this UI."
   numExecutors: 0
   mode: EXCLUSIVE
   securityRealm:
