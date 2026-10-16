@@ -1,3 +1,5 @@
 .env
 stacks/**/data/
 *.bak
+# platform certificate copied into the Jenkins build contexts by scripts/40-jenkins.sh
+stacks/jenkins/*/certs/*.crt

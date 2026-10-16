@@ -75,9 +75,6 @@ changes.
 
 - Semgrep and Checkov in the agent image are not pinned (pipx installs the latest). Pin them
   in `stacks/jenkins/agent/Dockerfile` for reproducible builds.
-- Build agents reach Gitea only through the public HTTPS URL, which the agent image does not
-  trust yet. Use SSH clone URLs in the Jenkins Gitea server configuration, or bake the
-  certificate into the agent image ([tls.md](../tls.md), "Tools calling each other").
 - Developers cloning over HTTPS run `git config --global http.https://<host>/.sslVerify false`
   (or trust the certificate) once per machine, see [tls.md](../tls.md).
 - Firewall rules on the provider side, see above.

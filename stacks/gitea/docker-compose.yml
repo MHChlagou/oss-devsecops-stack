@@ -47,6 +47,9 @@ services:
       # Gitea refuses webhooks to private addresses by default. Allow only this host, never
       # whole private ranges, so a repository admin cannot aim webhooks at other internal services.
       GITEA__webhook__ALLOWED_HOST_LIST: "${GITEA_WEBHOOK_ALLOWED_HOSTS}"
+      # Webhooks target Jenkins on the platform's own certificate (self-signed by default), which
+      # Gitea would otherwise reject. Targets are already restricted to the allow-list above.
+      GITEA__webhook__SKIP_TLS_VERIFY: "true"
       GITEA__log__LEVEL: Info
     ports:
       - "${GITEA_SSH_PORT}:22"

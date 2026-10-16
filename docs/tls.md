@@ -50,8 +50,8 @@ sudo ./install.sh --only traefik
 
 The Traefik step issues a new certificate for the current `HOST_ADDRESS`, reloads it (the
 dynamic file provider watches the directory, so Traefik picks it up without a restart) and
-refreshes the Docker trust copy. Then redistribute `server.crt` to every place listed in the
-next section: the old copies no longer match.
+refreshes the Docker trust copy. Then rerun the Jenkins component so its images carry the new
+certificate, and redistribute `server.crt` to developer machines: the old copies no longer match.
 
 If `HOST_ADDRESS` itself changed, also rerun the tools so their public URLs follow:
 `sudo ./install.sh --only traefik,gitea,jenkins,sonarqube,nexus`.
@@ -115,40 +115,33 @@ The build host is done by the installer. Any other machine that pushes to or pul
 sudo install -D -m 644 server.crt /etc/docker/certs.d/<host>:5000/ca.crt
 ```
 
-### Tools calling each other through the public URL
+### Jenkins, its agents and the tools calling each other
 
-The tools reach each other over the Docker network `devsecops` by container name, and those
-internal addresses are plain HTTP, so they do not need the certificate. Use them wherever a
-tool asks for another tool's address:
+The Jenkins component bakes the certificate into both images it builds: the controller and
+the build agent trust it in their system store (git, curl) and in the JVM truststore (Gitea,
+SonarQube and Dependency-Track plugins, the SonarQube scanner tool). So inside Jenkins the
+public URLs simply work:
 
-| From | To | Internal address to configure |
-|---|---|---|
-| Jenkins (SonarQube server setting) | SonarQube | `http://sonarqube:9000/sonarqube` |
-| Jenkins (Gitea server setting, API only) | Gitea | `http://gitea:3000` |
-| SonarQube (webhook) | Jenkins | `http://jenkins:8080/jenkins/sonarqube-webhook/` |
-| Gitea (webhook, with `GITEA_WEBHOOK_ALLOWED_HOSTS=jenkins`) | Jenkins | `http://jenkins:8080/jenkins/gitea-webhook/post` |
+| Setting | Value |
+|---|---|
+| Gitea server (Manage Jenkins, System, Gitea Servers) | `https://<host>/gitea`, with a Gitea access token credential selected; the connection test needs the token because anonymous API calls are refused |
+| SonarQube server | `https://<host>/sonarqube` |
+| Nexus registry for image pushes | `<host>:5000`, trusted by the host's Docker daemon |
+| Clone URLs reported by Gitea | `https://<host>/gitea/<org>/<repo>.git`, usable by agents as they are |
 
-Two paths go through the public URL and therefore through the certificate:
+Gitea's webhook deliveries to `https://<host>/jenkins/...` skip certificate verification
+(`GITEA__webhook__SKIP_TLS_VERIFY`), because the targets are already limited to the platform
+host by the webhook allow-list. SonarQube's webhook to Jenkins is plain HTTP inside the Docker
+network when configured as `http://jenkins:8080/jenkins/sonarqube-webhook/`, or the public URL
+once the SonarQube JVM trusts the certificate.
 
-- Build agents clone repositories. Agents run on the `jenkins-internal` network and reach
-  Gitea only through `https://<host>/gitea`, so Git inside the agent must trust the
-  certificate. Until that trust is baked into the agent image, use SSH clone URLs in the
-  Jenkins Gitea server configuration (checkout credential of type SSH key, port 2222), which
-  need no certificate at all.
-- Browsers follow redirects between tools during OpenID Connect logins once Keycloak is
-  installed; the browser trust above covers it.
+After a certificate change (new `HOST_ADDRESS`, client CA), rerun the Jenkins component so the
+images are rebuilt with the new file: `sudo ./install.sh --only jenkins`. Running builds are
+not interrupted; agents started afterwards use the new image.
 
-If a JVM-based tool must call another through HTTPS anyway, import the certificate into its
-truststore. Inside the Jenkins container, for example:
-
-```bash
-docker exec -u root jenkins keytool -importcert -noprompt -alias devsecops \
-  -file /path/to/server.crt -cacerts -storepass changeit
-docker restart jenkins
-```
-
-The import lives in the container's filesystem and is lost when the image is rebuilt, which is
-why the internal addresses above are the recommended route.
+The internal container addresses (`http://gitea:3000`, `http://sonarqube:9000/sonarqube`,
+`http://jenkins:8080/jenkins`) remain usable by the controller for API calls, but they make
+Gitea report clone URLs the agents cannot resolve, so prefer the public URLs above.
 
 ## Using the client's own certificate
 
@@ -188,5 +181,5 @@ it. Losing the client's certificate means asking the CA again.
 | Renews itself | no, and nothing expires before 2036 on a fresh install |
 | Regenerate when | `HOST_ADDRESS` changes, key compromise, approaching expiry |
 | How | delete the two files, `sudo ./install.sh --only traefik`, redistribute |
-| Trusted automatically | the host's Docker daemon and build agents' image pushes |
-| Trusted by hand | browsers, Git over HTTPS, other Docker clients, JVM truststores |
+| Trusted automatically | the host's Docker daemon, the Jenkins controller and agent images (system store and JVM) |
+| Trusted by hand | browsers, Git over HTTPS on developer machines, other Docker clients |

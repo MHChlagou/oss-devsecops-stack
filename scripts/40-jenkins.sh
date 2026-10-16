@@ -9,6 +9,17 @@ load_env
 ensure_network
 ensure_dir "$DATA_ROOT/jenkins/home" 1000:1000
 
+# The platform certificate goes into both image build contexts so Jenkins, its plugins, git and
+# the SonarQube scanner trust https://${HOST_ADDRESS}/... without manual truststore work.
+# Rerun this component after replacing the certificate (docs/tls.md).
+for ctx in controller agent; do
+  rm -f "$STACKS_DIR/jenkins/$ctx/certs/"*.crt
+  if [[ "$INGRESS" == traefik && -f "$DATA_ROOT/traefik/certs/server.crt" ]]; then
+    cp "$DATA_ROOT/traefik/certs/server.crt" "$STACKS_DIR/jenkins/$ctx/certs/platform.crt"
+  fi
+done
+[[ -f "$STACKS_DIR/jenkins/agent/certs/platform.crt" ]] && log "platform certificate will be trusted by the controller and agent images"
+
 log "building agent image devsecops/jenkins-agent:local (scanner CLIs copied from their official images)"
 docker build --quiet \
   --build-arg TRIVY_IMAGE="$TRIVY_IMAGE" \
