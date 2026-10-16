@@ -22,7 +22,7 @@ it. It also runs a single compute engine worker, so five simultaneous analyses q
 | Item | Value |
 |---|---|
 | Stack | `stacks/sonarqube/docker-compose.yml`, installed by `scripts/50-sonarqube.sh` |
-| Images | `SONARQUBE_IMAGE` (`sonarqube:community`), `POSTGRES_IMAGE` |
+| Images | `SONARQUBE_IMAGE` (`sonarqube:26.10.0.133078-community`, pinned), `POSTGRES_IMAGE` |
 | Data | `${DATA_ROOT}/sonarqube/data` (Elasticsearch index), `extensions` (plugins), `logs`, `db` |
 | URL | `https://<host>/sonarqube` |
 | First login | `admin` / `admin`, password change forced |
@@ -71,9 +71,11 @@ the Semgrep SARIF file, which puts Semgrep findings on the SonarQube issue list 
 
 - Backup: the PostgreSQL directory. The Elasticsearch index under `data/` is rebuilt from the
   database on start, so it can be excluded.
-- Upgrade: the `community` tag moves. Pin a dated tag in `versions.env` before production
-  (for example `sonarqube:25.4.0.105899-community`), and read the upgrade notes: the
-  database schema migrates on start and cannot be rolled back.
+- Upgrade: the image is pinned to an exact Community Build. To upgrade, read the release
+  notes, check that every plugin in `extensions/plugins` supports the new version, back up
+  `${DATA_ROOT}/sonarqube/db`, set the new tag in `versions.env` (`sonarqube:<version>-community`),
+  and run `sudo ./install.sh --only sonarqube`. The database schema migrates on first start
+  and cannot be rolled back, so the backup is the rollback.
 - Plugins: drop jars into `${DATA_ROOT}/sonarqube/extensions/plugins` and restart. Useful
   ones: the community OpenID Connect plugin for Keycloak login, and the community branch
   plugin if the client insists on branch analysis without paying (it is unsupported upstream).

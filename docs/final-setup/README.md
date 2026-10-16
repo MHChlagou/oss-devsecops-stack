@@ -13,16 +13,17 @@ one Docker host, every tool at `https://<host>/<tool>`, where `<host>` is the se
 | Gitea | `gitea/gitea:1.23` + `postgres:16-alpine` | `https://<host>/gitea`, SSH on 2222 | source control, pull requests, branch protection, webhooks to Jenkins | `${DATA_ROOT}/gitea` |
 | Jenkins | `jenkins/jenkins:2.580.1-lts-jdk21` (controller image built locally, 102 plugins pinned in `plugins.lock.txt`) + `tecnativa/docker-socket-proxy:0.3.0` | `https://<host>/jenkins` | CI/CD, configured by JCasC, zero executors, builds on ephemeral Docker agents | `${DATA_ROOT}/jenkins` |
 | Jenkins agent image | `devsecops/jenkins-agent:local`, built from `jenkins/agent:jdk21` | runs per build | carries Trivy, Gitleaks, Syft, hadolint, Semgrep, Checkov and the Docker CLI | none (throwaway) |
-| SonarQube Community Build | `sonarqube:community` + `postgres:16-alpine` | `https://<host>/sonarqube` | code quality and quality gate for PHP and TypeScript | `${DATA_ROOT}/sonarqube` |
+| SonarQube Community Build | `sonarqube:26.10.0.133078-community` + `postgres:16-alpine` | `https://<host>/sonarqube` | code quality and quality gate for PHP and TypeScript | `${DATA_ROOT}/sonarqube` |
 | Nexus Repository CE | `sonatype/nexus3:3.79.1` | `https://<host>/nexus`, registry `<host>:5000` | npm and Composer proxies, hosted Docker registry | `${DATA_ROOT}/nexus` |
 
 Scanner versions inside the agent image, from `versions.env`: Trivy 0.61.0, Gitleaks 8.24.2,
 Syft 1.23.1, hadolint 2.12.0. Semgrep and Checkov are installed by pipx at build time and
 currently float to the latest release (an open item, see below).
 
-`sonarqube:community` floats by design and tracks SonarQube's monthly Community Build; review it
-before each rerun, or pin it in `versions.env`. The Jenkins core and every Jenkins plugin are
-pinned (see the Jenkins tool page, Plugins).
+Every platform image is pinned to an exact version, SonarQube and the Jenkins core included, and
+every Jenkins plugin is locked (see the Jenkins tool page, Plugins), so a rerun or a rebuild never
+upgrades anything by surprise. `postgres:16-alpine` and `gitea/gitea:1.23` follow patch releases
+within their line, which keep the data format.
 
 ## How it was installed
 
