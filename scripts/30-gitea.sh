@@ -9,6 +9,8 @@ load_env
 ensure_network
 ensure_dir "$DATA_ROOT/gitea/db"
 ensure_dir "$DATA_ROOT/gitea/data" 1000:1000
+# Mounted read-only so Gitea trusts the platform certificate when delivering webhooks.
+ensure_dir "$DATA_ROOT/traefik/certs"
 compose_up gitea
 sync_db_password gitea gitea-db gitea "$GITEA_DB_PASSWORD"
 wait_for_service gitea "$GITEA_HTTP_PORT" "$GITEA_URL" /api/healthz 300
