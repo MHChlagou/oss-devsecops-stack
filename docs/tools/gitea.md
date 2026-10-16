@@ -52,7 +52,10 @@ into `app.ini` on first start. Settings chosen here:
 The Jenkins `gitea` plugin is installed. In Jenkins: Manage Jenkins, System, Gitea Servers,
 add `https://<host>/gitea` with a Gitea access token (Settings, Applications in Gitea, scopes
 `read:organization`, `read:repository`, `write:repository` for commit statuses). Tick "Manage
-hooks" so Jenkins creates the webhooks itself. Then create a "Gitea Organization" job: every
+hooks" so Jenkins creates the webhooks itself. The Server URL field shows "HTTP 403/Forbidden"
+because its check is anonymous and anonymous API access is disabled; ignore it. The token's
+scopes: repository read and write, organization read and write (for the organisation webhook),
+user read; the token's user must own the organisation. Then create a "Gitea Organization" job: every
 repository with a Jenkinsfile gets a multibranch pipeline, and pull requests get built and
 reported back as commit statuses.
 

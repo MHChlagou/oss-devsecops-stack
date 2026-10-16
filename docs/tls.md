@@ -124,7 +124,7 @@ public URLs simply work:
 
 | Setting | Value |
 |---|---|
-| Gitea server (Manage Jenkins, System, Gitea Servers) | `https://<host>/gitea`, with a Gitea access token credential selected; the connection test needs the token because anonymous API calls are refused |
+| Gitea server (Manage Jenkins, System, Gitea Servers) | `https://<host>/gitea`, with a credential of kind Gitea Personal Access Token selected. The URL field keeps showing "HTTP 403/Forbidden": that check is anonymous and Gitea refuses anonymous API calls (`REQUIRE_SIGNIN_VIEW`). It is expected; the scan of a Gitea Organization item is the real test |
 | SonarQube server | `https://<host>/sonarqube` |
 | Nexus registry for image pushes | `<host>:5000`, trusted by the host's Docker daemon |
 | Clone URLs reported by Gitea | `https://<host>/gitea/<org>/<repo>.git`, usable by agents as they are |
