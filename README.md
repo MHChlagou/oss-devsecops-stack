@@ -173,6 +173,7 @@ sudo ./install.sh --only traefik,gitea,jenkins
 sudo ./install.sh --skip observability
 sudo ./install.sh --uninstall sonarqube   # stops the stack, keeps its data
 sudo ./install.sh --uninstall all         # stops every stack, keeps all data
+sudo ./upgrade.sh gitea                   # upgrade one component to versions.env, backup first
 sudo ./install.sh --purge                 # stops everything and deletes DATA_ROOT, asks for confirmation
 ```
 
@@ -201,8 +202,9 @@ client's CA in that directory as `server.crt` and `server.key` and rerun the Tra
 ## Post-install checklist
 
 1. Vault: `docker exec -it vault vault operator init`, store the unseal keys offline, unseal.
-2. Nexus: read `${DATA_ROOT}/nexus/data/admin.password`, log in, create `npm-proxy`,
-   `composer-proxy`, `docker-hosted` (HTTP connector on port 5000, enable Docker Bearer Token realm).
+2. Nexus: read `${DATA_ROOT}/nexus/data/admin.password`, log in, accept the EULA (uploads and
+   pushes are refused until then), create `npm-proxy`, `composer-proxy`, `docker-hosted` (HTTP
+   connector on port 5000, enable Docker Bearer Token realm).
 3. SonarQube: change the admin password, add the webhook `https://<host>/jenkins/sonarqube-webhook/`,
    create a global analysis token, add it to Jenkins as `sonarqube-token`, and configure the
    server under Manage Jenkins, System, SonarQube servers with name `sonarqube`.

@@ -7,6 +7,9 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STACKS_DIR="$ROOT_DIR/stacks"
 ENV_FILE="$ROOT_DIR/.env"
 VERSIONS_FILE="$ROOT_DIR/versions.env"
+# Optional, git-ignored: pins written by upgrade.sh --rollback to keep a component on the version
+# its restored data belongs to. Values here override versions.env.
+VERSIONS_LOCAL_FILE="$ROOT_DIR/versions.local.env"
 
 log()  { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*"; }
 warn() { printf '[%s] WARN %s\n' "$(date +%H:%M:%S)" "$*" >&2; }
@@ -29,6 +32,10 @@ load_env() {
   source "$ENV_FILE"
   # shellcheck disable=SC1090
   source "$VERSIONS_FILE"
+  if [[ -f "$VERSIONS_LOCAL_FILE" ]]; then
+    # shellcheck disable=SC1090
+    source "$VERSIONS_LOCAL_FILE"
+  fi
   set +a
   : "${DATA_ROOT:?DATA_ROOT must be set in .env}"
   : "${DOCKER_NETWORK:?DOCKER_NETWORK must be set in .env}"
@@ -112,8 +119,21 @@ derive_urls() {
   KC_HTTP_RELATIVE_PATH="${KEYCLOAK_URL_PATH:-/}"
   GRAFANA_SERVE_FROM_SUB_PATH=false
   [[ -n "$GRAFANA_URL_PATH" ]] && GRAFANA_SERVE_FROM_SUB_PATH=true
-  # Gitea matches webhook targets by host, not port, so this is the platform host and nothing else.
-  : "${GITEA_WEBHOOK_ALLOWED_HOSTS:=${HOST_ADDRESS}}"
+  # Gitea runs in strict egress mode: webhooks (and OAuth2 clients) may only reach these targets.
+  # Portless entries cover 80 and 443 only, so ports mode names the Jenkins port. Gitea never lets a
+  # host name cover a private address, so a name in HOST_ADDRESS is also listed by its IP.
+  if [[ -z "${GITEA_WEBHOOK_ALLOWED_HOSTS:-}" ]]; then
+    local egress_host="$HOST_ADDRESS" egress_ip=""
+    [[ "$INGRESS" == ports ]] && egress_host="${HOST_ADDRESS}:${JENKINS_HTTP_PORT}"
+    GITEA_WEBHOOK_ALLOWED_HOSTS="$egress_host"
+    if [[ ! "$HOST_ADDRESS" =~ ^[0-9.]+$ ]]; then
+      egress_ip="$(getent hosts "$HOST_ADDRESS" 2>/dev/null | awk 'NR==1 {print $1}')"
+      if [[ -n "$egress_ip" ]]; then
+        [[ "$INGRESS" == ports ]] && egress_ip="${egress_ip}:${JENKINS_HTTP_PORT}"
+        GITEA_WEBHOOK_ALLOWED_HOSTS="${GITEA_WEBHOOK_ALLOWED_HOSTS},${egress_ip}"
+      fi
+    fi
+  fi
   : "${ADMIN_EMAIL:=devsecops@localhost}"
   GITEA_HOST="${GITEA_URL#*://}"; GITEA_HOST="${GITEA_HOST%%/*}"; GITEA_HOST="${GITEA_HOST%%:*}"
   export INGRESS HOST_ADDRESS ADMIN_EMAIL \
@@ -161,14 +181,21 @@ compose_files() {
   fi
 }
 
+# compose <stack-name> <compose args...>: docker compose for one stack with the right env files
+# (.env, versions.env, versions.local.env when present) and compose files for the ingress mode.
+compose() {
+  local stack="$1"; shift
+  local files env_files=(--env-file "$ENV_FILE" --env-file "$VERSIONS_FILE")
+  [[ -f "$VERSIONS_LOCAL_FILE" ]] && env_files+=(--env-file "$VERSIONS_LOCAL_FILE")
+  mapfile -t files < <(compose_files "$stack")
+  docker compose --project-name "$stack" "${env_files[@]}" "${files[@]}" "$@"
+}
+
 # compose_up <stack-name> [extra compose args]
 compose_up() {
   local stack="$1"; shift || true
-  local files
-  mapfile -t files < <(compose_files "$stack")
   log "starting stack $stack (ingress: $INGRESS)"
-  docker compose --project-name "$stack" --env-file "$ENV_FILE" --env-file "$VERSIONS_FILE" \
-    "${files[@]}" up -d --remove-orphans "$@"
+  compose "$stack" up -d --remove-orphans "$@"
 }
 
 # sync_db_password <project> <db-service> <role> <password>. Postgres reads POSTGRES_PASSWORD
@@ -187,11 +214,9 @@ sync_db_password() {
 
 # compose_down <stack-name>: stops and removes the containers and networks, keeps the data.
 compose_down() {
-  local stack="$1" files
-  mapfile -t files < <(compose_files "$stack")
+  local stack="$1"
   log "stopping stack $stack"
-  docker compose --project-name "$stack" --env-file "$ENV_FILE" --env-file "$VERSIONS_FILE" \
-    "${files[@]}" down --remove-orphans
+  compose "$stack" down --remove-orphans
 }
 
 # Stacks in reverse install order, for uninstall and purge.

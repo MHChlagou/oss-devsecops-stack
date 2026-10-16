@@ -36,7 +36,10 @@ If it does not, keep Packagist direct through an HTTP proxy, or run Repman or Sa
 
 ## First-run steps
 
-1. Log in, set the new admin password, disable anonymous access.
+1. Log in, set the new admin password, accept the End User License Agreement, disable
+   anonymous access. Until the agreement is accepted, every upload and image push is refused
+   with 403 ("You must accept the End User License Agreement"). Without the wizard:
+   read it with `GET /service/rest/v1/system/eula`, send it back with `"accepted": true`.
 2. Security, Realms: activate "Docker Bearer Token Realm".
 3. Repositories to create:
    - `npm-proxy` (remote `https://registry.npmjs.org`), `npm-hosted`, `npm-group` with both.
@@ -76,9 +79,9 @@ explicitly in Dockerfiles.
 - Backup: stop the container or use the "Admin - Export databases for backup" task, then copy
   `${DATA_ROOT}/nexus/data` excluding `cache/` and `tmp/`. Blob stores are large; back them up
   incrementally.
-- Upgrade: bump `NEXUS_IMAGE`, one minor version at a time, and check the release notes for
-  database migrations (3.7x moved from OrientDB to H2, which requires a migration step from
-  older versions).
+- Upgrade: set the new `NEXUS_IMAGE` in `versions.env`, read the release notes, then
+  `sudo ./upgrade.sh nexus` (backup, migration, rollback: see [upgrades.md](../upgrades.md)).
+  3.79.1 to 3.97.0 was tested with real data, both ways.
 - Logs: `${DATA_ROOT}/nexus/data/log/nexus.log` and `request.log`.
 - Monitoring: Administration, Support, Status; metrics at `/service/metrics/prometheus` with
   an admin token if you want them in Grafana.

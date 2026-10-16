@@ -10,11 +10,11 @@ one Docker host, every tool at `https://<host>/<tool>`, where `<host>` is the se
 | Tool | Image (pinned in `versions.env`) | URL | Role | Data |
 |---|---|---|---|---|
 | Traefik | `traefik:v3.7` | `https://<host>/dashboard/` | TLS termination and reverse proxy, one certificate for the host, port 80 redirect | `${DATA_ROOT}/traefik` (certificate, dashboard login) |
-| Gitea | `gitea/gitea:1.23` + `postgres:16-alpine` | `https://<host>/gitea`, SSH on 2222 | source control, pull requests, branch protection, webhooks to Jenkins | `${DATA_ROOT}/gitea` |
+| Gitea | `gitea/gitea:28.1.0` + `postgres:16-alpine` | `https://<host>/gitea`, SSH on 2222 | source control, pull requests, branch protection, webhooks to Jenkins | `${DATA_ROOT}/gitea` |
 | Jenkins | `jenkins/jenkins:2.580.1-lts-jdk21` (controller image built locally, 102 plugins pinned in `plugins.lock.txt`) + `tecnativa/docker-socket-proxy:0.3.0` | `https://<host>/jenkins` | CI/CD, configured by JCasC, zero executors, builds on ephemeral Docker agents | `${DATA_ROOT}/jenkins` |
 | Jenkins agent image | `devsecops/jenkins-agent:local`, built from `jenkins/agent:jdk21` | runs per build | carries Trivy, Gitleaks, Syft, hadolint, Semgrep, Checkov and the Docker CLI | none (throwaway) |
 | SonarQube Community Build | `sonarqube:26.10.0.133078-community` + `postgres:16-alpine` | `https://<host>/sonarqube` | code quality and quality gate for PHP and TypeScript | `${DATA_ROOT}/sonarqube` |
-| Nexus Repository CE | `sonatype/nexus3:3.79.1` | `https://<host>/nexus`, registry `<host>:5000` | npm and Composer proxies, hosted Docker registry | `${DATA_ROOT}/nexus` |
+| Nexus Repository CE | `sonatype/nexus3:3.97.0` | `https://<host>/nexus`, registry `<host>:5000` | npm and Composer proxies, hosted Docker registry | `${DATA_ROOT}/nexus` |
 
 Scanner versions inside the agent image, from `versions.env`: Trivy 0.61.0, Gitleaks 8.24.2,
 Syft 1.23.1, hadolint 2.12.0. Semgrep and Checkov are installed by pipx at build time and
@@ -22,8 +22,9 @@ currently float to the latest release (an open item, see below).
 
 Every platform image is pinned to an exact version, SonarQube and the Jenkins core included, and
 every Jenkins plugin is locked (see the Jenkins tool page, Plugins), so a rerun or a rebuild never
-upgrades anything by surprise. `postgres:16-alpine` and `gitea/gitea:1.23` follow patch releases
-within their line, which keep the data format.
+upgrades anything by surprise. `postgres:16-alpine` follows patch releases within PostgreSQL 16,
+which keep the data format. Upgrades go through `upgrade.sh`, with a backup and a rollback
+([upgrades.md](../upgrades.md)).
 
 ## How it was installed
 

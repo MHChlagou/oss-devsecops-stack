@@ -33,8 +33,12 @@ into `app.ini` on first start. Settings chosen here:
 - `INSTALL_LOCK=true`: the web installer is skipped, the admin account is created by the script.
 - `DISABLE_REGISTRATION=true` and `REQUIRE_SIGNIN_VIEW=true`: no self-service accounts, no anonymous browsing.
 - `actions.ENABLED=false`: Jenkins is the CI, Gitea Actions would be a second one.
-- `webhook.ALLOWED_HOST_LIST=<host>`: webhooks may only call the platform host itself, which
-  stops a repository admin from using Gitea to probe other internal services.
+- `security.EGRESS_MODE=strict` and `security.ALLOWED_HOST_LIST=<host>`: webhooks and OAuth2
+  clients may only call the platform host, which stops a repository admin from using Gitea to
+  probe other internal services or send data outside. Anything else fails with "denied by
+  egress policy".
+- `server.PUBLIC_URL_DETECTION=never`: links and clone URLs always come from `ROOT_URL`, so they
+  keep the `/gitea` sub-path behind the proxy.
 - `LFS_START_SERVER=true`: large files (design assets, fixtures) stay out of Git history.
 
 ## First-run steps
@@ -67,8 +71,9 @@ events push and pull request.
 - Backup: `docker exec -u git gitea gitea dump -c /data/gitea/conf/app.ini` writes a zip with
   repositories and a database dump into the container's working directory. Nightly, plus a
   snapshot of `${DATA_ROOT}/gitea`.
-- Upgrade: bump `GITEA_IMAGE` by one minor version at a time and read the breaking-changes
-  section of the release notes. Gitea migrates its database on start.
+- Upgrade: set the new `GITEA_IMAGE` in `versions.env`, read the breaking changes in the
+  release notes, then `sudo ./upgrade.sh gitea` (backup, migration, rollback: see
+  [upgrades.md](../upgrades.md)).
 - Logs: `docker logs gitea`, level `Info`. Raise to `Debug` through `GITEA__log__LEVEL` only
   while investigating.
 - Admin CLI: `docker exec -u git gitea gitea admin user list`, `... admin user change-password`,

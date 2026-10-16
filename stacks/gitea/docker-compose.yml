@@ -37,6 +37,9 @@ services:
       GITEA__server__ROOT_URL: ${GITEA_URL}/
       GITEA__server__HTTP_PORT: "3000"
       GITEA__server__SSH_DOMAIN: ${GITEA_HOST}
+      # Links, clone URLs and redirects always come from ROOT_URL (with its /gitea sub-path), never
+      # from request headers, which behind the prefix-stripping proxy would lose the sub-path.
+      GITEA__server__PUBLIC_URL_DETECTION: never
       GITEA__server__SSH_PORT: ${GITEA_SSH_PORT}
       GITEA__server__SSH_LISTEN_PORT: "22"
       GITEA__server__LFS_START_SERVER: "true"
@@ -44,9 +47,11 @@ services:
       GITEA__service__DISABLE_REGISTRATION: "true"
       GITEA__service__REQUIRE_SIGNIN_VIEW: "true"
       GITEA__actions__ENABLED: "false"
-      # Gitea refuses webhooks to private addresses by default. Allow only this host, never
-      # whole private ranges, so a repository admin cannot aim webhooks at other internal services.
-      GITEA__webhook__ALLOWED_HOST_LIST: "${GITEA_WEBHOOK_ALLOWED_HOSTS}"
+      # Outgoing requests from webhooks and OAuth2 clients: strict mode allows only the listed
+      # targets, the platform host (see GITEA_WEBHOOK_ALLOWED_HOSTS in lib/common.sh), so a
+      # repository admin cannot aim webhooks at other internal or external services.
+      GITEA__security__EGRESS_MODE: strict
+      GITEA__security__ALLOWED_HOST_LIST: "${GITEA_WEBHOOK_ALLOWED_HOSTS}"
       # Webhooks target Jenkins behind Traefik's certificate (self-signed by default). Go reads
       # every certificate in these directories, so the platform certificate is trusted and
       # verification stays on. The directory holds the public certificate only, copied by

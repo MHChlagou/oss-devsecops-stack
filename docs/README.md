@@ -2,6 +2,8 @@
 
 - [Final setup](final-setup/README.md): what is installed for the client, how, which ports
   are exposed, what is deferred and why ([decisions](final-setup/decisions.md)).
+- [Upgrades](upgrades.md): `upgrade.sh`, backups, rollback, per-component notes, the
+  PostgreSQL major version rule.
 - [TLS certificates](tls.md): how the certificate is generated, its lifetime, trusting it on
   browsers, Git and Docker, regenerating it, replacing it with the client's own.
 - [Strict minimum](strict-minimum.md): Gitea, Jenkins, SonarQube and Nexus on host ports with no
