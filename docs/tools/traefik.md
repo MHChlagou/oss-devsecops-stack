@@ -32,7 +32,7 @@ same certificate:
 | `VAULT_HTTP_PORT` | 8200 | Vault UI and API | the UI has no base-path setting |
 | `DEFECTDOJO_HTTP_PORT` | 8083 | DefectDojo | static assets served from the root |
 | `DTRACK_HTTP_PORT`, `DTRACK_API_PORT` | 8090, 8091 | Dependency-Track frontend and API | static frontend, API called from the browser |
-| `TEST_ENV_PORT_BASE`, `TEST_ENV_SLOTS` | 8100, 5 | per-branch test environment N at port 8100+N (8101 to 8105) | apps built for the root path; one environment per slot |
+| `TEST_ENV_PORT_BASE`, `TEST_ENV_SLOTS` | 8100, 10 | per-branch test environment slot N at port 8100+N (8101 to 8110); projects share them through `deploy.ingress.slotOffset` | apps built for the root path; one environment per slot |
 
 The test environment entry points `test-env-<N>` have no route of their own: the Jenkins build
 that deploys a branch into slot N labels its frontend for `test-env-<N>` (tb-pipelines,

@@ -72,7 +72,7 @@ derive_urls() {
   : "${DTRACK_HTTP_PORT:=8090}"
   : "${DTRACK_API_PORT:=8091}"
   : "${TEST_ENV_PORT_BASE:=8100}"
-  : "${TEST_ENV_SLOTS:=5}"
+  : "${TEST_ENV_SLOTS:=10}"
   : "${TEST_ENV_NETWORK:=test-envs}"
   if ! [[ "$TEST_ENV_PORT_BASE" =~ ^[0-9]+$ && "$TEST_ENV_SLOTS" =~ ^[0-9]+$ ]] \
     || (( TEST_ENV_SLOTS < 1 || TEST_ENV_SLOTS > 50 || TEST_ENV_PORT_BASE < 1024 || TEST_ENV_PORT_BASE + TEST_ENV_SLOTS > 65535 )); then
