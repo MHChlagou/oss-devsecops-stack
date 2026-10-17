@@ -49,7 +49,13 @@ DYNAMIC
 # Static config. websecure carries every sub-path tool; the registry, Vault, DefectDojo and
 # Dependency-Track cannot run under a sub-path and keep a TLS entry point of their own. Plain
 # HTTP on TRAEFIK_HTTP_PORT redirects to HTTPS.
-entrypoint() { printf '  %s:\n    address: ":%s"\n' "$1" "$2"; }
+# entrypoint <name> <port> [read-timeout]. Traefik 3 ends a request after 60 s of reading by default,
+# too short for pushing a large image layer or artifact, so the upload entry points get 30 minutes.
+entrypoint() {
+  printf '  %s:\n    address: ":%s"\n' "$1" "$2"
+  [[ -n "${3:-}" ]] && printf '    transport:\n      respondingTimeouts:\n        readTimeout: %s\n' "$3"
+  return 0
+}
 {
   cat <<STATIC
 api:
@@ -71,8 +77,8 @@ entryPoints:
           to: websecure
           scheme: https
 STATIC
-  entrypoint websecure "$TRAEFIK_HTTPS_PORT"
-  entrypoint registry "$REGISTRY_PORT"
+  entrypoint websecure "$TRAEFIK_HTTPS_PORT" 30m
+  entrypoint registry "$REGISTRY_PORT" 30m
   entrypoint vault "$VAULT_HTTP_PORT"
   entrypoint defectdojo "$DEFECTDOJO_HTTP_PORT"
   entrypoint dtrack "$DTRACK_HTTP_PORT"
