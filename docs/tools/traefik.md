@@ -23,7 +23,7 @@ stays under its path. Plain HTTP on port 80 redirects to HTTPS.
 | `/prometheus` | Prometheus, behind the dashboard's basic auth | prefix stripped by Traefik, `--web.route-prefix=/` |
 | `/dashboard/`, `/api/` | Traefik dashboard and API, basic auth | |
 
-Four things cannot live under a sub-path and keep a TLS entry point of their own on the
+These cannot live under a sub-path and keep a TLS entry point of their own on the
 same certificate:
 
 | Port variable | Default | Serves | Why its own port |
@@ -32,6 +32,14 @@ same certificate:
 | `VAULT_HTTP_PORT` | 8200 | Vault UI and API | the UI has no base-path setting |
 | `DEFECTDOJO_HTTP_PORT` | 8083 | DefectDojo | static assets served from the root |
 | `DTRACK_HTTP_PORT`, `DTRACK_API_PORT` | 8090, 8091 | Dependency-Track frontend and API | static frontend, API called from the browser |
+| `TEST_ENV_PORT_BASE`, `TEST_ENV_SLOTS` | 8100, 5 | per-branch test environment N at port 8100+N (8101 to 8105) | apps built for the root path; one environment per slot |
+
+The test environment entry points `test-env-<N>` have no route of their own: the Jenkins build
+that deploys a branch into slot N labels its frontend for `test-env-<N>` (tb-pipelines,
+`deploy.ingress`), and the route disappears with the environment. Those containers join
+`TEST_ENV_NETWORK` (`test-envs`), which only Traefik shares with them; they never join the
+platform network. The ports are public like the others: open them in the host firewall, and
+treat what runs there as reachable by anyone.
 
 In `INGRESS=ports` mode there is no Traefik: Gitea, Jenkins, SonarQube and Nexus publish
 their own ports at the root path over plain HTTP, and every prefix setting above is empty.

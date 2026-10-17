@@ -15,6 +15,7 @@ services:
       - "${DEFECTDOJO_HTTP_PORT}:${DEFECTDOJO_HTTP_PORT}"
       - "${DTRACK_HTTP_PORT}:${DTRACK_HTTP_PORT}"
       - "${DTRACK_API_PORT}:${DTRACK_API_PORT}"
+      - "${TEST_ENV_PORT_FIRST}-${TEST_ENV_PORT_LAST}:${TEST_ENV_PORT_FIRST}-${TEST_ENV_PORT_LAST}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ${DATA_ROOT}/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
@@ -23,6 +24,7 @@ services:
       - ${DATA_ROOT}/traefik/usersfile:/etc/traefik/usersfile:ro
     networks:
       - devsecops
+      - test-envs
     labels:
       - traefik.enable=true
       - traefik.http.routers.traefik.rule=PathPrefix(`/dashboard`) || PathPrefix(`/api`)
@@ -36,3 +38,6 @@ networks:
   devsecops:
     external: true
     name: ${DOCKER_NETWORK}
+  test-envs:
+    external: true
+    name: ${TEST_ENV_NETWORK}

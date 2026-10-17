@@ -71,6 +71,16 @@ derive_urls() {
   : "${DEFECTDOJO_HTTP_PORT:=8083}"
   : "${DTRACK_HTTP_PORT:=8090}"
   : "${DTRACK_API_PORT:=8091}"
+  : "${TEST_ENV_PORT_BASE:=8100}"
+  : "${TEST_ENV_SLOTS:=5}"
+  : "${TEST_ENV_NETWORK:=test-envs}"
+  if ! [[ "$TEST_ENV_PORT_BASE" =~ ^[0-9]+$ && "$TEST_ENV_SLOTS" =~ ^[0-9]+$ ]] \
+    || (( TEST_ENV_SLOTS < 1 || TEST_ENV_SLOTS > 50 || TEST_ENV_PORT_BASE < 1024 || TEST_ENV_PORT_BASE + TEST_ENV_SLOTS > 65535 )); then
+    die "TEST_ENV_PORT_BASE must be a port from 1024 and TEST_ENV_SLOTS a number from 1 to 50"
+  fi
+  [[ "$TEST_ENV_NETWORK" =~ ^[a-z0-9][a-z0-9_.-]*$ ]] || die "TEST_ENV_NETWORK must be a Docker network name"
+  TEST_ENV_PORT_FIRST=$((TEST_ENV_PORT_BASE + 1))
+  TEST_ENV_PORT_LAST=$((TEST_ENV_PORT_BASE + TEST_ENV_SLOTS))
   local base
   case "$INGRESS" in
     traefik)
@@ -143,7 +153,8 @@ derive_urls() {
          DEFECTDOJO_URL DTRACK_URL DTRACK_API_URL GRAFANA_URL PROMETHEUS_URL \
          GITEA_URL_PATH JENKINS_URL_PATH SONARQUBE_URL_PATH NEXUS_URL_PATH KEYCLOAK_URL_PATH \
          GRAFANA_URL_PATH PROMETHEUS_URL_PATH JENKINS_OPTS NEXUS_CONTEXT KC_HTTP_RELATIVE_PATH \
-         GRAFANA_SERVE_FROM_SUB_PATH GITEA_WEBHOOK_ALLOWED_HOSTS GITEA_HOST
+         GRAFANA_SERVE_FROM_SUB_PATH GITEA_WEBHOOK_ALLOWED_HOSTS GITEA_HOST \
+         TEST_ENV_PORT_BASE TEST_ENV_SLOTS TEST_ENV_NETWORK TEST_ENV_PORT_FIRST TEST_ENV_PORT_LAST
 }
 
 # Components that only work behind Traefik call this first.
@@ -244,6 +255,7 @@ purge_host_state() {
   docker volume rm devsecops-trivy-cache >/dev/null 2>&1 || true
   docker image rm devsecops/jenkins:local devsecops/jenkins-agent:local >/dev/null 2>&1 || true
   docker network rm "$DOCKER_NETWORK" >/dev/null 2>&1 || true
+  docker network rm "$TEST_ENV_NETWORK" >/dev/null 2>&1 || true
   log "purged; .env was kept, delete it too for a completely fresh start"
 }
 

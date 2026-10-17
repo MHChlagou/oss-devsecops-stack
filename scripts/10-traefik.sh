@@ -8,6 +8,12 @@ require_root
 load_env
 require_traefik_ingress
 ensure_network
+# Test environments reach Traefik on a network of their own: branch code never joins the platform
+# network, where Jenkins, Nexus and the databases listen.
+if ! docker network inspect "$TEST_ENV_NETWORK" >/dev/null 2>&1; then
+  log "creating docker network $TEST_ENV_NETWORK"
+  docker network create "$TEST_ENV_NETWORK" >/dev/null
+fi
 
 ensure_dir "$DATA_ROOT/traefik/certs"
 ensure_dir "$DATA_ROOT/traefik/dynamic"
@@ -47,7 +53,8 @@ tls:
 DYNAMIC
 
 # Static config. websecure carries every sub-path tool; the registry, Vault, DefectDojo and
-# Dependency-Track cannot run under a sub-path and keep a TLS entry point of their own. Plain
+# Dependency-Track cannot run under a sub-path and keep a TLS entry point of their own, and so
+# does every test environment slot (test-env-<N>, routed by the deploying build's labels). Plain
 # HTTP on TRAEFIK_HTTP_PORT redirects to HTTPS.
 # entrypoint <name> <port> [read-timeout]. Traefik 3 ends a request after 60 s of reading by default,
 # too short for pushing a large image layer or artifact, so the upload entry points get 30 minutes.
@@ -83,6 +90,9 @@ STATIC
   entrypoint defectdojo "$DEFECTDOJO_HTTP_PORT"
   entrypoint dtrack "$DTRACK_HTTP_PORT"
   entrypoint dtrack-api "$DTRACK_API_PORT"
+  for ((slot = 1; slot <= TEST_ENV_SLOTS; slot++)); do
+    entrypoint "test-env-${slot}" "$((TEST_ENV_PORT_BASE + slot))"
+  done
   cat <<STATIC
 providers:
   docker:
